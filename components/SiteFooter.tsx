@@ -1,0 +1,59 @@
+import Link from "next/link";
+
+export default function SiteFooter() {
+  return (
+    <footer className="border-t border-ink-100 bg-ink-50">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🕯️</span>
+            <span className="font-serif text-xl font-semibold text-ink-900">
+              Memorial
+            </span>
+          </div>
+          <p className="mt-3 max-w-xs text-sm text-ink-500">
+            A gentle space to honour and remember the people we love.
+          </p>
+        </div>
+        <div className="text-sm">
+          <h4 className="font-semibold text-ink-800">Memorials</h4>
+          <ul className="mt-3 space-y-2 text-ink-500">
+            <li>
+              <Link href="/m/mary-johnson" className="hover:text-ink-800">
+                View a demo memorial
+              </Link>
+            </li>
+            <li>
+              <Link href="/pricing" className="hover:text-ink-800">
+                Pricing
+              </Link>
+            </li>
+            <li>
+              <Link href="/signup" className="hover:text-ink-800">
+                Create a memorial
+              </Link>
+            </li>
+          </ul>
+        </div>
+        <div className="text-sm">
+          <h4 className="font-semibold text-ink-800">Account</h4>
+          <ul className="mt-3 space-y-2 text-ink-500">
+            <li>
+              <Link href="/login" className="hover:text-ink-800">
+                Log in
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin" className="hover:text-ink-800">
+                Admin dashboard
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-ink-100 py-6 text-center text-xs text-ink-400">
+        © {new Date().getFullYear()} Memorial. Made with care.
+      </div>
+    </footer>
+  );
+}

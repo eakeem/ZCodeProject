@@ -1,0 +1,3 @@
+# This folder holds the local development database (db.json), created
+# automatically from lib/data/seed.ts on first run. Real data is never
+# committed (see .gitignore).
