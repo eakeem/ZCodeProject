@@ -10,8 +10,9 @@ import {
 // PATCH /api/admin/tributes/:id  body: { action: "approve"|"reject"|"delete" }
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const tenant = await getCurrentTenant();
   if (!tenant) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -24,7 +25,7 @@ export async function PATCH(
 
   // verify this tribute belongs to the tenant's memorial
   const db = await getDb();
-  const tribute = db.tributes.find((t) => t.id === params.id);
+  const tribute = db.tributes.find((t) => t.id === id);
   if (!tribute) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const memorial = await getMemorialById(tribute.memorialId);
   if (!memorial || memorial.tenantId !== tenant.id) {

@@ -11,6 +11,7 @@ export default async function GalleryAdminPage() {
 
   const memorials = await getMemorialsByTenant(tenant.id);
   const memorial = memorials[0];
+
   if (!memorial) {
     return (
       <AdminShell active="/admin/gallery">

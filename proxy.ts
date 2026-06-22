@@ -3,9 +3,13 @@ import type { NextRequest } from "next/server";
 
 // Protects /admin/* routes. Session validation itself happens in
 // server components (lib/auth getCurrentTenant) since that needs
-// DB access; middleware just blocks obviously unauthenticated
+// DB access; this proxy just blocks obviously unauthenticated
 // requests from even rendering the route.
-export function middleware(req: NextRequest) {
+//
+// NOTE: Next.js 16 renamed the `middleware.ts` convention to
+// `proxy.ts` (the `middleware` name is deprecated). The exported
+// function may be called either `middleware` or `proxy`.
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isProtected = pathname.startsWith("/admin");
   if (!isProtected) return NextResponse.next();

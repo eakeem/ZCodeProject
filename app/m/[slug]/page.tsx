@@ -15,9 +15,10 @@ import SiteFooter from "@/components/SiteFooter";
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const memorial = await getMemorialBySlug(params.slug);
+  const { slug } = await params;
+  const memorial = await getMemorialBySlug(slug);
   if (!memorial) return { title: "Memorial" };
   return {
     title: `In memory of ${memorial.deceasedName}`,
@@ -28,9 +29,10 @@ export async function generateMetadata({
 export default async function MemorialPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const memorial = await getMemorialBySlug(params.slug);
+  const { slug } = await params;
+  const memorial = await getMemorialBySlug(slug);
   if (!memorial || !memorial.published) notFound();
 
   const media = await getMediaByMemorial(memorial.id);

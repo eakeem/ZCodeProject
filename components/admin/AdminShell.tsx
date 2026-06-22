@@ -5,6 +5,7 @@ import { getMemorialsByTenant } from "@/lib/repo";
 import { getTier } from "@/lib/tiers";
 import { logoutAndRedirect as logoutAction } from "@/app/admin/actions";
 
+
 const NAV = [
   { href: "/admin", label: "Overview", icon: "🏠" },
   { href: "/admin/memorial", label: "Memorial page", icon: "🕯️" },

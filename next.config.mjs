@@ -9,30 +9,15 @@ const nextConfig = {
       { protocol: "https", hostname: "images.pexels.com" },
     ],
   },
-  // `stripe`, `@supabase/supabase-js`, and `cloudinary` are OPTIONAL
-  // production dependencies loaded only at runtime in server routes.
-  // Marking them as webpack externals means the build never tries to
-  // bundle them, so the app builds & runs even before they're installed.
-  // They're required lazily (computed specifier) inside lib/*.ts.
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      const externals = Array.isArray(config.externals)
-        ? config.externals
-        : [config.externals].filter(Boolean);
-      externals.push(({ request }, callback) => {
-        if (
-          request === "stripe" ||
-          request === "@supabase/supabase-js" ||
-          request === "cloudinary"
-        ) {
-          return callback(null, `commonjs ${request}`);
-        }
-        callback();
-      });
-      config.externals = externals;
-    }
-    return config;
-  },
+  // `stripe`, `cloudinary`, and `@supabase/supabase-js` are OPTIONAL
+  // production dependencies loaded only at runtime in server routes,
+  // and only after their env vars are checked (see isStripeConfigured /
+  // isCloudinaryConfigured). Listing them here tells Next/Turbopack to
+  // treat them as runtime `require`s rather than bundling them — so the
+  // app still builds when they aren't installed, and only resolves them
+  // at runtime when actually used. (Next 16 uses Turbopack by default,
+  // which replaced the old webpack-externals setup with this option.)
+  serverExternalPackages: ["stripe", "cloudinary"],
 };
 
 export default nextConfig;

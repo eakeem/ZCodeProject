@@ -20,7 +20,7 @@ export default function MemorialEditor({
     bio: memorial.bio || "",
     published: memorial.published,
   });
-  const [sections, setSections] = useState(memorial.customSections);
+  const [sections, setSections] = useState(memorial.customSections || []);
   const [service, setService] = useState({
     date: memorial.serviceInfo?.date || "",
     time: memorial.serviceInfo?.time || "",

@@ -1,20 +1,32 @@
 -- ============================================================
--- Memorial App — Supabase / PostgreSQL schema
--- ============================================================
--- Run in the Supabase SQL editor. Multi-tenant: every row is
--- scoped to a tenant_id and protected by Row Level Security.
--- When ready, point the app at Supabase by setting env vars and
--- switching lib/repo.ts to delegate to lib/supabase-store.ts.
+-- Memorial App — Supabase / PostgreSQL schema (FULL FIX)
 -- ============================================================
 
--- Enumerations
-create type tier as enum ('free', 'essential', 'premium');
-create type tribute_status as enum ('pending', 'approved', 'rejected');
-create type tribute_type as enum ('message', 'candle');
+-- ------------------------------------------------------------
+-- Enumerations (safe to re-run)
+-- ------------------------------------------------------------
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tier') THEN
+    CREATE TYPE tier AS enum ('free', 'essential', 'premium');
+  END IF;
+END $$;
 
--- Tenants (one per customer/family). `auth_id` links to auth.users
--- when using Supabase Auth.
-create table tenants (
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tribute_status') THEN
+    CREATE TYPE tribute_status AS enum ('pending', 'approved', 'rejected');
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tribute_type') THEN
+    CREATE TYPE tribute_type AS enum ('message', 'candle','condolence');
+  END IF;
+END $$;
+
+-- ------------------------------------------------------------
+-- Tenants
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tenants (
   id          uuid primary key default gen_random_uuid(),
   email       text unique not null,
   name        text not null,
@@ -23,12 +35,14 @@ create table tenants (
   created_at  timestamptz not null default now()
 );
 
-create index tenants_auth_id_idx on tenants(auth_id);
+CREATE INDEX IF NOT EXISTS tenants_auth_id_idx ON public.tenants(auth_id);
 
--- Memorial pages (a tenant may have several on premium).
-create table memorials (
+-- ------------------------------------------------------------
+-- Memorials
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.memorials (
   id              uuid primary key default gen_random_uuid(),
-  tenant_id       uuid not null references tenants(id) on delete cascade,
+  tenant_id       uuid not null references public.tenants(id) on delete cascade,
   slug            text not null unique,
   deceased_name   text not null,
   birth_date      date,
@@ -46,102 +60,249 @@ create table memorials (
   updated_at      timestamptz not null default now()
 );
 
-create index memorials_tenant_idx on memorials(tenant_id);
+CREATE INDEX IF NOT EXISTS memorials_tenant_idx ON public.memorials(tenant_id);
+CREATE INDEX IF NOT EXISTS memorials_published_idx ON public.memorials(published);
+CREATE INDEX IF NOT EXISTS memorials_tenant_published_idx ON public.memorials(tenant_id, published);
 
--- Gallery images
-create table media (
+-- ------------------------------------------------------------
+-- Media
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.media (
   id          uuid primary key default gen_random_uuid(),
-  memorial_id uuid not null references memorials(id) on delete cascade,
+  memorial_id uuid not null references public.memorials(id) on delete cascade,
   url         text not null,
   caption     text,
   created_at  timestamptz not null default now()
 );
 
-create index media_memorial_idx on media(memorial_id);
+CREATE INDEX IF NOT EXISTS media_memorial_idx ON public.media(memorial_id);
 
--- Tributes (messages + virtual candles) — held for moderation
-create table tributes (
-  id          uuid primary key default gen_random_uuid(),
-  memorial_id uuid not null references memorials(id) on delete cascade,
-  type        tribute_type not null,
-  author_name text not null,
-  message     text not null,
-  image_url   text,
-  status      tribute_status not null default 'pending',
-  created_at  timestamptz not null default now()
+-- ------------------------------------------------------------
+-- Tributes
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tributes (
+  id           uuid primary key default gen_random_uuid(),
+  memorial_id uuid not null references public.memorials(id) on delete cascade,
+  type         tribute_type not null,
+  author_name  text not null,
+  message      text not null,
+  image_url    text,
+  status       tribute_status not null default 'pending',
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  user_id      uuid references auth.users(id) on delete set null
 );
 
-create index tributes_memorial_idx on tributes(memorial_id);
-create index tributes_status_idx on tributes(status);
+CREATE INDEX IF NOT EXISTS tributes_memorial_idx ON public.tributes(memorial_id);
+CREATE INDEX IF NOT EXISTS tributes_status_idx ON public.tributes(status);
+CREATE INDEX IF NOT EXISTS tributes_status_memorial_idx ON public.tributes(status, memorial_id);
 
--- ============================================================
--- Row Level Security
--- ============================================================
--- Public visitors may READ approved tributes & published memorials.
--- Tenants have full control over their own rows (matched via the
--- tenant whose auth_id = auth.uid()).
+-- ---- Patch existing tributes table (fixes your error) ----
+-- Add missing user_id if table already existed without it
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'tributes'
+      AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE public.tributes
+    ADD COLUMN user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
-alter table tenants     enable row level security;
-alter table memorials   enable row level security;
-alter table media       enable row level security;
-alter table tributes    enable row level security;
+-- Add missing updated_at if table already existed without it
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'tributes'
+      AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.tributes
+    ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+  END IF;
+END $$;
 
--- helper: current tenant id from the logged-in user
-create or replace function current_tenant_id()
-returns uuid language sql stable security definer as $$
-  select id from tenants where auth_id = auth.uid() limit 1
+-- ------------------------------------------------------------
+-- RLS
+-- ------------------------------------------------------------
+ALTER TABLE public.tenants   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.memorials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.media     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tributes  ENABLE ROW LEVEL SECURITY;
+
+-- ------------------------------------------------------------
+-- Helper: current tenant id from the logged-in user
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.current_tenant_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT id
+  FROM public.tenants
+  WHERE auth_id = auth.uid()
+  LIMIT 1
 $$;
 
--- Tenants: a user can read/update only their own tenant row
-create policy tenants_self_select on tenants
-  for select using (auth_id = auth.uid());
-create policy tenants_self_update on tenants
-  for update using (auth_id = auth.uid());
+REVOKE ALL ON FUNCTION public.current_tenant_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.current_tenant_id() FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.current_tenant_id() TO authenticated;
 
--- Memorials: public read if published; owner full control
-create policy memorials_public_read on memorials
-  for select using (published = true);
-create policy memorials_owner_all on memorials
-  for all using (tenant_id = current_tenant_id())
-  with check (tenant_id = current_tenant_id());
+-- ------------------------------------------------------------
+-- tenants policies
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS tenants_self_select ON public.tenants;
+CREATE POLICY tenants_self_select
+  ON public.tenants
+  FOR SELECT
+  USING (auth_id = auth.uid());
 
--- Media: public read for published memorials; owner full control
-create policy media_public_read on media
-  for select using (
-    exists (select 1 from memorials m
-            where m.id = media.memorial_id and m.published = true)
-  );
-create policy media_owner_all on media
-  for all using (
-    exists (select 1 from memorials m
-            where m.id = media.memorial_id and m.tenant_id = current_tenant_id())
-  );
+DROP POLICY IF EXISTS tenants_self_update ON public.tenants;
+CREATE POLICY tenants_self_update
+  ON public.tenants
+  FOR UPDATE
+  USING (auth_id = auth.uid())
+  WITH CHECK (auth_id = auth.uid());
 
--- Tributes: anyone may create; public reads only approved; owner moderates
-create policy tributes_public_insert on tributes
-  for insert with check (status = 'pending');
-create policy tributes_public_read on tributes
-  for select using (
-    status = 'approved' or exists (
-      select 1 from memorials m
-      where m.id = tributes.memorial_id and m.tenant_id = current_tenant_id()
+-- ------------------------------------------------------------
+-- memorials policies
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS memorials_public_read ON public.memorials;
+CREATE POLICY memorials_public_read
+  ON public.memorials
+  FOR SELECT
+  USING (published = true);
+
+DROP POLICY IF EXISTS memorials_owner_all ON public.memorials;
+CREATE POLICY memorials_owner_all
+  ON public.memorials
+  FOR ALL
+  USING (tenant_id = public.current_tenant_id())
+  WITH CHECK (tenant_id = public.current_tenant_id());
+
+-- ------------------------------------------------------------
+-- media policies
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS media_public_read ON public.media;
+CREATE POLICY media_public_read
+  ON public.media
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.media.memorial_id
+        AND m.published = true
     )
   );
-create policy tributes_owner_update on tributes
-  for update using (
-    exists (select 1 from memorials m
-      where m.id = tributes.memorial_id and m.tenant_id = current_tenant_id())
-  );
-create policy tributes_owner_delete on tributes
-  for delete using (
-    exists (select 1 from memorials m
-      where m.id = tributes.memorial_id and m.tenant_id = current_tenant_id())
+
+DROP POLICY IF EXISTS media_owner_all ON public.media;
+CREATE POLICY media_owner_all
+  ON public.media
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.media.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.media.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
   );
 
--- updated_at trigger
-create or replace function touch_updated_at()
-returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end; $$;
+-- ------------------------------------------------------------
+-- tributes policies
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS tributes_public_insert ON public.tributes;
+CREATE POLICY tributes_public_insert
+  ON public.tributes
+  FOR INSERT
+  WITH CHECK (status = 'pending');
 
-create trigger memorials_touch before update on memorials
-  for each row execute function touch_updated_at();
+DROP POLICY IF EXISTS tributes_public_read ON public.tributes;
+CREATE POLICY tributes_public_read
+  ON public.tributes
+  FOR SELECT
+  USING (
+    status = 'approved'
+    OR EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.tributes.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  );
+
+DROP POLICY IF EXISTS tributes_owner_update ON public.tributes;
+CREATE POLICY tributes_owner_update
+  ON public.tributes
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.tributes.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.tributes.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  );
+
+DROP POLICY IF EXISTS tributes_owner_delete ON public.tributes;
+CREATE POLICY tributes_owner_delete
+  ON public.tributes
+  FOR DELETE
+  USING (
+    public.tributes.user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.tributes.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  );
+
+-- ------------------------------------------------------------
+-- updated_at trigger helper + triggers
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.touch_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tributes_touch ON public.tributes;
+CREATE TRIGGER tributes_touch
+  BEFORE UPDATE ON public.tributes
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_updated_at();
+
+DROP TRIGGER IF EXISTS memorials_touch ON public.memorials;
+CREATE TRIGGER memorials_touch
+  BEFORE UPDATE ON public.memorials
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_updated_at();

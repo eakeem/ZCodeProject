@@ -36,13 +36,16 @@ export async function readDb(): Promise<Database> {
   if (cache) return cache;
   await ensureFile();
   const raw = await fs.readFile(DB_FILE, "utf8");
+  let db: Database;
   try {
-    cache = JSON.parse(raw) as Database;
+    db = JSON.parse(raw) as Database;
   } catch {
-    // corrupt file — reseed
-    cache = JSON.parse(JSON.stringify(seedData));
-    await writeDb(cache);
+    // corrupt file — reseed and persist immediately
+    db = JSON.parse(JSON.stringify(seedData));
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), "utf8");
   }
+  cache = db;
   return cache;
 }
 

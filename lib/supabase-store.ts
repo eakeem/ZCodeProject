@@ -1,49 +1,114 @@
-// ============================================================
-// Supabase adapter — implements the SAME repository contract as
-// lib/repo.ts but against Supabase (Postgres + RLS).
-//
-// To activate:
-//   1. Fill NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-//      and SUPABASE_SERVICE_ROLE_KEY in .env.local
-//   2. Run supabase/schema.sql in the Supabase SQL editor
-//   3. In lib/repo.ts, re-export from here:
-//        export * from "./supabase-store";
-//
-// This file uses createClient on each call so it works in
-// serverless (no global singletons across warm requests). For
-// production scale use the Supabase connection pooler.
-// ============================================================
+import { createClient } from '@supabase/supabase-js';
 
-// NOTE: This requires `@supabase/supabase-js`:
-//   npm i @supabase/supabase-js
-// It is intentionally NOT imported at top level so the app still
-// runs without Supabase configured. Uncomment after install + env.
-
-/*
-import { createClient } from "@supabase/supabase-js";
-import type {
-  Memorial, MediaItem, Tribute, TributeStatus, TributeType,
-  Tenant, Tier, CustomSection,
-} from "./types";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+export type Memorial = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  bio: string | null;
+  slug:string;
+  date_of_birth: string | null;
+  date_of_death: string | null;
+  image_url: string | null;
+  is_public: boolean;
+  created_at: string;
+};
+export type Tier = 'free' | 'pro' | 'basic';
+export type Tenant = {
+  id: string;
+  email: string;
+  password_hash: string;
+  name: string;
+  tier: Tier;
+  created_at: string;
+};
 
 function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
+  return createClient(supabaseUrl, supabaseServiceKey);
 }
 
-// ... re-implement every function from lib/repo.ts here against
-// the `tenants`, `memorials`, `media`, `tributes` tables. The
-// snake_case columns map to the camelCase types via a small
-// transform. Use the service-role client for admin operations and
-// enforce tenant scoping explicitly (defence in depth alongside RLS).
 
-export async function getMemorialBySlug(slug: string): Promise<Memorial | null> {
-  const { data } = await adminClient()
-    .from("memorials").select("*").eq("slug", slug).single();
-  return data ? rowToMemorial(data) : null;
+
+export async function getTenantByEmail(email: string): Promise<Tenant | null> {
+  const { data, error } = await adminClient()
+    .from('tenants')
+    .select('*')
+    .eq('email', email)
+    .single();
+  
+  if (error && error.code === 'PGRST116') return null;
+  if (error) throw error;
+  return data as Tenant;
 }
-// (full set of functions omitted for brevity — mirror lib/repo.ts 1:1)
-*/
+
+export async function createTenant(tenant: Partial<Tenant>): Promise<Tenant> {
+  const { data, error } = await adminClient()
+    .from('tenants')
+    .insert(tenant)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data as Tenant;
+}
+
+export async function getTenantBySession(sessionToken: string): Promise<Tenant | null> {
+  const jwt = require('jsonwebtoken');
+  try {
+    const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET!) as { tenantId: string };
+    const { data, error } = await adminClient()
+      .from('tenants')
+      .select('*')
+      .eq('id', decoded.tenantId)
+      .single();
+    
+    if (error) return null;
+    return data as Tenant;
+  } catch {
+    return null;
+  }
+}
+
+export async function getTenantById(id: string): Promise<Tenant | null> {
+  const { data, error } = await adminClient()
+    .from('tenants')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) return null;
+  return data as Tenant;
+}
+export async function getMemorialsByTenant(tenantId: string): Promise<Memorial[]> {
+  const { data, error } = await adminClient()
+    .from('memorials')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching memorials:', error);
+    return [];
+  }
+  return data as Memorial[];
+}
+
+export async function createMemorial(data: {
+  tenant_id: string;
+  name: string;
+  bio?: string;
+  date_of_birth?: string;
+  date_of_death?: string;
+  image_url?: string;
+  is_public?: boolean;
+}): Promise<Memorial> {
+  const { data: memorial, error } = await adminClient()
+    .from('memorials')
+    .insert(data)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return memorial as Memorial;
+}

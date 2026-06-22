@@ -5,13 +5,14 @@ import { getMemorialById, updateMemorial } from "@/lib/repo";
 // PATCH /api/admin/memorial/:id — update memorial fields (owner only)
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const tenant = await getCurrentTenant();
   if (!tenant) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const memorial = await getMemorialById(params.id);
+  const memorial = await getMemorialById(id);
   if (!memorial || memorial.tenantId !== tenant.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

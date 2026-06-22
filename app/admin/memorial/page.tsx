@@ -13,13 +13,14 @@ export default async function MemorialAdminPage() {
 
   // auto-create the first memorial if none exists
   if (!memorial) {
-    const slug = (tenant.name || "memorial")
+    const base = (tenant.name || "memorial")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
-    memorial = await createMemorial(tenant.id, {
-      slug: `${slug}-${Date.now().toString(36)}`,
-      deceasedName: tenant.name,
+    memorial = await createMemorial({
+      tenantId: tenant.id,
+      slug: `${base}-${Date.now().toString(36)}`,
+      deceasedName: tenant.name || "Memorial",
       published: false,
     });
   }

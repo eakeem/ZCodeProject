@@ -1,23 +1,40 @@
 // ============================================================
-// Auth helpers. In production these delegate to Supabase Auth;
-// in local dev they use a signed httpOnly cookie + sha-256
-// password hashing against the local store.
+// Auth helpers — signed httpOnly cookie sessions.
+//
+// Passwords are hashed with sha-256 (matches the seed account in
+// lib/data/seed.ts). The session token is a JWT signed with
+// JWT_SECRET (falling back to APP_SECRET for backwards compat).
+//
+// Swap to Supabase Auth in production: replace getTenantByEmail /
+// createTenant / getTenantById with the Supabase-backed versions
+// and use Supabase's session cookie instead of the JWT here.
 // ============================================================
 
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { getTenantByEmail, getTenantBySession, createTenant, createSession, destroySession } from "./repo";
+import jwt from "jsonwebtoken";
+import {
+  getTenantByEmail,
+  createTenant,
+  getTenantById,
+} from "./repo";
+import type { Tenant } from "./types";
 
 export const SESSION_COOKIE = "memorial_session";
 
-export function hashPassword(password: string): string {
-  // NOTE: sha-256 is fine for the local dev fallback. Supabase Auth
-  // (bcrypt + session JWTs) takes over in production.
+function sessionSecret(): string {
+  return process.env.JWT_SECRET || process.env.APP_SECRET || "dev-secret-change-me";
+}
+
+// sha-256 hex — same scheme the seed account uses (see lib/data/seed.ts)
+export async function hashPassword(password: string): Promise<string> {
   return crypto.createHash("sha256").update(password).digest("hex");
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  return hashPassword(password) === hash;
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const candidate = await hashPassword(password);
+  // constant-time-ish compare
+  return candidate.length === hash.length && candidate === hash;
 }
 
 export function isValidEmail(email: string): boolean {
@@ -40,7 +57,7 @@ export async function signUp(input: {
   const tenant = await createTenant({
     email,
     name: input.name.trim(),
-    passwordHash: hashPassword(input.password),
+    passwordHash: await hashPassword(input.password),
   });
   await startSession(tenant.id);
   return { ok: true };
@@ -54,7 +71,7 @@ export async function signIn(
   if (!tenant || !tenant.passwordHash) {
     return { ok: false, error: "Invalid email or password." };
   }
-  if (!verifyPassword(password, tenant.passwordHash)) {
+  if (!(await verifyPassword(password, tenant.passwordHash))) {
     return { ok: false, error: "Invalid email or password." };
   }
   await startSession(tenant.id);
@@ -62,9 +79,13 @@ export async function signIn(
 }
 
 export async function signOut(): Promise<void> {
-  const token = currentToken();
-  if (token) await destroySession(token);
-  (await cookies()).delete(SESSION_COOKIE);
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
+}
+
+async function currentToken(): Promise<string | undefined> {
+  const store = await cookies();
+  return store.get(SESSION_COOKIE)?.value;
 }
 
 async function startSession(tenantId: string): Promise<void> {
@@ -79,17 +100,21 @@ async function startSession(tenantId: string): Promise<void> {
   });
 }
 
-export function currentToken(): string | undefined {
-  // next/headers cookies() is async in Next 15 but sync in 14.
-  // We use the .get via the sync API for Next 14 compat.
-  const store = cookies() as unknown as {
-    get: (name: string) => { value: string } | undefined;
-  };
-  return store.get(SESSION_COOKIE)?.value;
+export async function createSession(tenantId: string): Promise<string> {
+  return jwt.sign({ tenantId }, sessionSecret(), { expiresIn: "14d" });
 }
 
-export async function getCurrentTenant() {
-  const token = currentToken();
+export async function getTenantBySession(sessionToken: string): Promise<Tenant | null> {
+  try {
+    const decoded = jwt.verify(sessionToken, sessionSecret()) as { tenantId: string };
+    return await getTenantById(decoded.tenantId);
+  } catch {
+    return null;
+  }
+}
+
+export async function getCurrentTenant(): Promise<Tenant | null> {
+  const token = await currentToken();
   if (!token) return null;
   return getTenantBySession(token);
 }

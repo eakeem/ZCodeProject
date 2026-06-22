@@ -1,12 +1,13 @@
 // ============================================================
-// Repository — the single API the whole app uses to read/write
-// data. Today it is backed by the local JSON store; the same
-// functions will be reimplemented against Supabase in
-// `lib/supabase-store.ts`. Components never touch the store
-// directly, so the swap is painless.
+// Repository — the single data-access layer the whole app talks
+// through. Backed by the local JSON store (lib/store.ts) by default.
+//
+// To switch to Supabase in production, re-implement these functions
+// against lib/supabase-store.ts (same signatures) and repoint the
+// imports here — nothing else in the app needs to change.
 // ============================================================
 
-import { readDb, writeDb, uid } from "./store";
+import { readDb, writeDb, invalidateCache, uid } from "./store";
 import type {
   Database,
   Memorial,
@@ -16,24 +17,95 @@ import type {
   TributeType,
   Tenant,
   Tier,
-  CustomSection,
 } from "./types";
 
-// ---- Memorials ----
+// expose the raw db reader for routes that need ad-hoc access
+// (e.g. admin tribute moderation looking up a tribute + memorial)
+export { readDb as getDb, invalidateCache, uid };
+
+// ------------------------------------------------------------
+// Tenants
+// ------------------------------------------------------------
+export async function getTenantByEmail(email: string): Promise<Tenant | null> {
+  const db = await readDb();
+  return db.tenants.find((t) => t.email === email.trim().toLowerCase()) ?? null;
+}
+
+export async function getTenantById(id: string): Promise<Tenant | null> {
+  const db = await readDb();
+  return db.tenants.find((t) => t.id === id) ?? null;
+}
+
+export async function createTenant(input: {
+  email: string;
+  name: string;
+  passwordHash: string;
+}): Promise<Tenant> {
+  const tenant: Tenant = {
+    id: uid("tenant-"),
+    email: input.email.trim().toLowerCase(),
+    name: input.name.trim(),
+    passwordHash: input.passwordHash,
+    tier: "free",
+    createdAt: new Date().toISOString(),
+  };
+  await writeDb((db) => db.tenants.push(tenant));
+  return tenant;
+}
+
+export async function setTenantTier(tenantId: string, tier: Tier): Promise<void> {
+  await writeDb((db) => {
+    const t = db.tenants.find((x) => x.id === tenantId);
+    if (t) t.tier = tier;
+  });
+}
+
+// ------------------------------------------------------------
+// Memorials
+// ------------------------------------------------------------
+export async function getMemorialById(id: string): Promise<Memorial | null> {
+  const db = await readDb();
+  return db.memorials.find((m) => m.id === id) ?? null;
+}
 
 export async function getMemorialBySlug(slug: string): Promise<Memorial | null> {
   const db = await readDb();
   return db.memorials.find((m) => m.slug === slug) ?? null;
 }
 
-export async function getMemorialById(id: string): Promise<Memorial | null> {
-  const db = await readDb();
-  return db.memorials.find((m) => m.id === id) ?? null;
-}
-
 export async function getMemorialsByTenant(tenantId: string): Promise<Memorial[]> {
   const db = await readDb();
-  return db.memorials.filter((m) => m.tenantId === tenantId);
+  return db.memorials
+    .filter((m) => m.tenantId === tenantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function createMemorial(
+  input: Pick<Memorial, "tenantId" | "slug" | "deceasedName"> &
+    Partial<Memorial>,
+): Promise<Memorial> {
+  const now = new Date().toISOString();
+  const memorial: Memorial = {
+    id: uid("mem-"),
+    tenantId: input.tenantId,
+    slug: input.slug,
+    deceasedName: input.deceasedName,
+    birthDate: input.birthDate,
+    passingDate: input.passingDate,
+    tagline: input.tagline,
+    heroImage: input.heroImage,
+    portraitImage: input.portraitImage,
+    bio: input.bio,
+    customSections: input.customSections ?? [],
+    serviceInfo: input.serviceInfo,
+    livestreamUrl: input.livestreamUrl,
+    theme: input.theme ?? "ivory",
+    published: input.published ?? false,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await writeDb((db) => db.memorials.push(memorial));
+  return memorial;
 }
 
 export async function updateMemorial(
@@ -42,83 +114,22 @@ export async function updateMemorial(
 ): Promise<Memorial | null> {
   let updated: Memorial | null = null;
   await writeDb((db) => {
-    const idx = db.memorials.findIndex((m) => m.id === id);
-    if (idx === -1) return;
-    db.memorials[idx] = {
-      ...db.memorials[idx],
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-    updated = db.memorials[idx];
+    const m = db.memorials.find((x) => x.id === id);
+    if (!m) return;
+    Object.assign(m, patch, { updatedAt: new Date().toISOString() });
+    updated = m;
   });
   return updated;
 }
 
-export async function createMemorial(
-  tenantId: string,
-  data: Pick<Memorial, "slug" | "deceasedName"> &
-    Partial<Omit<Memorial, "id" | "tenantId" | "createdAt" | "updatedAt">>,
-): Promise<Memorial> {
-  const now = new Date().toISOString();
-  const memorial: Memorial = {
-    id: uid("mem-"),
-    tenantId,
-    customSections: [],
-    theme: "ivory",
-    published: false,
-    ...data,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await writeDb((db) => {
-    db.memorials.push(memorial);
-  });
-  return memorial;
-}
-
-// ---- Custom sections ----
-
-export async function addCustomSection(
-  memorialId: string,
-  section: Omit<CustomSection, "id">,
-): Promise<void> {
-  await writeDb((db) => {
-    const m = db.memorials.find((x) => x.id === memorialId);
-    if (!m) return;
-    m.customSections.push({ ...section, id: uid("sec-") });
-  });
-}
-
-export async function updateCustomSection(
-  memorialId: string,
-  sectionId: string,
-  patch: Partial<CustomSection>,
-): Promise<void> {
-  await writeDb((db) => {
-    const m = db.memorials.find((x) => x.id === memorialId);
-    const s = m?.customSections.find((c) => c.id === sectionId);
-    if (s) Object.assign(s, patch);
-  });
-}
-
-export async function deleteCustomSection(
-  memorialId: string,
-  sectionId: string,
-): Promise<void> {
-  await writeDb((db) => {
-    const m = db.memorials.find((x) => x.id === memorialId);
-    if (!m) return;
-    m.customSections = m.customSections.filter((c) => c.id !== sectionId);
-  });
-}
-
-// ---- Media ----
-
+// ------------------------------------------------------------
+// Media
+// ------------------------------------------------------------
 export async function getMediaByMemorial(memorialId: string): Promise<MediaItem[]> {
   const db = await readDb();
   return db.media
     .filter((m) => m.memorialId === memorialId)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function addMedia(
@@ -133,9 +144,7 @@ export async function addMedia(
     caption,
     createdAt: new Date().toISOString(),
   };
-  await writeDb((db) => {
-    db.media.push(item);
-  });
+  await writeDb((db) => db.media.push(item));
   return item;
 }
 
@@ -145,26 +154,31 @@ export async function deleteMedia(id: string): Promise<void> {
   });
 }
 
-// ---- Tributes ----
-
-export async function getApprovedTributes(memorialId: string): Promise<Tribute[]> {
+// ------------------------------------------------------------
+// Tributes
+// ------------------------------------------------------------
+export async function getTributesByMemorial(
+  memorialId: string,
+): Promise<Tribute[]> {
   const db = await readDb();
   return db.tributes
-    .filter((t) => t.memorialId === memorialId && t.status === "approved")
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    .filter((t) => t.memorialId === memorialId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+// If `status` is omitted, returns ALL tributes (every status) — used
+// by the admin moderation screen. With a status, filters to it.
 export async function getTributesByStatus(
   memorialId: string,
   status?: TributeStatus,
 ): Promise<Tribute[]> {
-  const db = await readDb();
-  return db.tributes
-    .filter(
-      (t) =>
-        t.memorialId === memorialId && (status ? t.status === status : true),
-    )
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const all = await getTributesByMemorial(memorialId);
+  if (!status) return all;
+  return all.filter((t) => t.status === status);
+}
+
+export async function getApprovedTributes(memorialId: string): Promise<Tribute[]> {
+  return getTributesByStatus(memorialId, "approved");
 }
 
 export async function createTribute(input: {
@@ -172,21 +186,17 @@ export async function createTribute(input: {
   type: TributeType;
   authorName: string;
   message: string;
-  imageUrl?: string;
 }): Promise<Tribute> {
   const tribute: Tribute = {
     id: uid("trib-"),
     memorialId: input.memorialId,
     type: input.type,
-    authorName: input.authorName.slice(0, 80),
-    message: input.message.slice(0, 1000),
-    imageUrl: input.imageUrl,
+    authorName: input.authorName,
+    message: input.message,
     status: "pending",
     createdAt: new Date().toISOString(),
   };
-  await writeDb((db) => {
-    db.tributes.push(tribute);
-  });
+  await writeDb((db) => db.tributes.push(tribute));
   return tribute;
 }
 
@@ -204,76 +214,4 @@ export async function deleteTribute(id: string): Promise<void> {
   await writeDb((db) => {
     db.tributes = db.tributes.filter((t) => t.id !== id);
   });
-}
-
-// ---- Tenants ----
-
-export async function getTenantByEmail(email: string): Promise<Tenant | null> {
-  const db = await readDb();
-  return (
-    db.tenants.find((t) => t.email.toLowerCase() === email.toLowerCase()) ??
-    null
-  );
-}
-
-export async function getTenantById(id: string): Promise<Tenant | null> {
-  const db = await readDb();
-  return db.tenants.find((t) => t.id === id) ?? null;
-}
-
-export async function createTenant(input: {
-  email: string;
-  name: string;
-  passwordHash: string;
-}): Promise<Tenant> {
-  const tenant: Tenant = {
-    id: uid("tenant-"),
-    email: input.email,
-    name: input.name,
-    tier: "free",
-    createdAt: new Date().toISOString(),
-    passwordHash: input.passwordHash,
-  };
-  await writeDb((db) => {
-    db.tenants.push(tenant);
-  });
-  return tenant;
-}
-
-export async function setTenantTier(id: string, tier: Tier): Promise<void> {
-  await writeDb((db) => {
-    const t = db.tenants.find((x) => x.id === id);
-    if (t) t.tier = tier;
-  });
-}
-
-// ---- Sessions (local dev only) ----
-
-export async function createSession(tenantId: string): Promise<string> {
-  const token = uid("sess-") + uid();
-  await writeDb((db) => {
-    db.sessions[token] = tenantId;
-  });
-  return token;
-}
-
-export async function getTenantBySession(
-  token: string,
-): Promise<Tenant | null> {
-  if (!token) return null;
-  const db = await readDb();
-  const tenantId = db.sessions[token];
-  if (!tenantId) return null;
-  return db.tenants.find((t) => t.id === tenantId) ?? null;
-}
-
-export async function destroySession(token: string): Promise<void> {
-  await writeDb((db) => {
-    delete db.sessions[token];
-  });
-}
-
-// expose raw db for the gate/migration helpers
-export async function getDb(): Promise<Database> {
-  return readDb();
 }
