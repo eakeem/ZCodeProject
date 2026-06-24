@@ -3,10 +3,12 @@ import {
   getMemorialBySlug,
   getMediaByMemorial,
   getApprovedTributes,
+  getApprovedSharedPhotos,
 } from "@/lib/repo";
 import MemorialNavbar from "@/components/memorial/MemorialNavbar";
 import Hero from "@/components/memorial/Hero";
 import Gallery from "@/components/memorial/Gallery";
+import SharedPhotos from "@/components/memorial/SharedPhotos";
 import LifeStory from "@/components/memorial/LifeStory";
 import ServiceInfo from "@/components/memorial/ServiceInfo";
 import TributeSection from "@/components/memorial/TributeSection";
@@ -36,6 +38,7 @@ export default async function MemorialPage({
   if (!memorial || !memorial.published) notFound();
 
   const media = await getMediaByMemorial(memorial.id);
+  const sharedPhotos = await getApprovedSharedPhotos(memorial.id);
   const approved = await getApprovedTributes(memorial.id);
   const messages = approved.filter((t) => t.type === "message");
   const candles = approved.filter((t) => t.type === "candle");
@@ -46,6 +49,7 @@ export default async function MemorialPage({
       <main>
         <Hero memorial={memorial} />
         <Gallery items={media} />
+        <SharedPhotos memorialId={memorial.id} initial={sharedPhotos} />
         <LifeStory memorial={memorial} portrait={media[0]} />
         <ServiceInfo memorial={memorial} />
         <TributeSection

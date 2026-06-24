@@ -45,6 +45,9 @@ export async function readDb(): Promise<Database> {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), "utf8");
   }
+  // Normalize against missing keys in older DB files (e.g. before
+  // sharedPhotos existed) so reads never crash on a stale db.json.
+  db.sharedPhotos = Array.isArray(db.sharedPhotos) ? db.sharedPhotos : [];
   cache = db;
   return cache;
 }

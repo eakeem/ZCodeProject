@@ -1,8 +1,8 @@
 # 🕯️ Memorial
 
-A responsive, multi-tenant **memorial / funeral web application**. Families create a beautiful memorial page, gather tributes and virtual candles (moderated before going public), manage a photo gallery, and upgrade via tiered plans.
+A responsive, multi-tenant **memorial / funeral web application**. Families create a beautiful memorial page, gather tributes and virtual candles (moderated before going public), manage a photo gallery, accept visitor-submitted "shared photos" (also moderated), and upgrade via tiered plans.
 
-It **runs immediately with zero configuration** using a local data store and demo login, and ships **production-ready integration code for Supabase, Cloudinary, and Stripe** — add env vars to go fully live and scale to many customers.
+It **runs immediately with zero configuration** using a local data store and demo login, and ships **production-ready integration code for Supabase and Stripe** — add env vars to go fully live and scale to many customers.
 
 ---
 
@@ -10,7 +10,8 @@ It **runs immediately with zero configuration** using a local data store and dem
 
 - **Public memorial page** — hero, portrait, biography, custom text sections, service info, photo gallery with lightbox
 - **Tribute section** — visitors leave warm messages and **light a virtual candle**; everything is held for moderation
-- **Admin dashboard** (auth-protected) — edit all page content, upload images, approve/reject/delete tributes
+- **Shared photos** — visitors can **upload a photo**; the family approves it from the dashboard before it appears in a "Shared photos" gallery (capped per tier)
+- **Admin dashboard** (auth-protected) — edit all page content, upload images, moderate tributes **and** shared photos
 - **Multi-tenant** — every record is scoped to a `tenantId`; many customers can host memorials on one deployment
 - **Tiered payments** — Free / Essential / Premium with feature gating (photo limits, livestream, custom domain, branding)
 - **Fully responsive** — mobile, tablet, desktop
@@ -47,13 +48,15 @@ On first run the app seeds a complete demo memorial (photos, approved + pending 
 | `/admin` | Dashboard overview |
 | `/admin/memorial` | Edit memorial content + custom text sections + service info |
 | `/admin/gallery` | Upload / manage photos |
+| `/admin/shared-photos` | Moderate visitor-submitted photos |
 | `/admin/tributes` | Moderate messages & candles |
 | `/admin/billing` | Manage plan tier |
 
-API routes: `POST /api/tributes`, `POST /api/auth/{login,signup,logout}`,
+API routes: `POST /api/tributes`, `POST /api/shared-photos`,
+`POST /api/auth/{login,signup,logout}`,
 `PATCH/POST /api/admin/memorial/:id`, `POST/DELETE /api/admin/media`,
-`PATCH /api/admin/tributes/:id`, `POST /api/upload`,
-`POST /api/stripe/{checkout,webhook}`.
+`PATCH /api/admin/tributes/:id`, `PATCH /api/admin/shared-photos/:id`,
+`POST /api/upload`, `POST /api/stripe/{checkout,webhook}`.
 
 ---
 
@@ -74,15 +77,19 @@ The local JSON store is perfect for development. For production with many custom
    export * from "./supabase-store";
    ```
 
-Because every part of the app talks only to `lib/repo.ts`, the swap touches one file. RLS enforces tenant isolation at the database level (public visitors read only published memorials & approved tributes; owners control their own rows).
+Because every part of the app talks only to `lib/repo.ts`, the swap touches one file. RLS enforces tenant isolation at the database level (public visitors read only published memorials & approved tributes/shared photos; owners control their own rows).
 
-### 2. Cloudinary (image uploads + optimization) — *required for photo uploads*
+### 2. Supabase Storage (image uploads) — *required for photo uploads*
 
-Without Cloudinary, image **file** uploads are disabled; you can still add photos **by URL** for testing.
+Both family gallery uploads and visitor-submitted "shared photos" are stored in Supabase Storage (no Cloudinary). Without the Supabase env vars, image **file** uploads are disabled; you can still add photos **by URL** for testing.
 
-1. Create a free Cloudinary account.
-2. Set env vars: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
-3. Done — `/api/upload` signs browser uploads and stores the returned URL.
+1. In your Supabase project, create two **PUBLIC** Storage buckets:
+   - `memorial` — family gallery uploads (admin dashboard)
+   - `shared-photos` — visitor-submitted photos (held for moderation)
+2. Set env vars: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (the storage helpers in **`lib/storage.ts`** read these).
+3. Done — `/api/upload` (family) and `/api/shared-photos` (visitors) stream files to Storage and record the public URL.
+
+Visitor uploads are MIME-validated (`jpg/png/webp/gif/avif`) and capped at **5 MB**. Per-tier **shared-photo** limits are defined in `lib/tiers.ts` (Free 80 / Essential 150 / Premium 200) and enforced in `lib/gate.ts`.
 
 ### 3. Stripe (tiered payments) — *optional, falls back to demo mode*
 
@@ -107,8 +114,8 @@ lib/
   store.ts            # local JSON store (development)
   repo.ts             # repository — THE data API the whole app uses
   supabase-store.ts   # Supabase adapter (same contract as repo.ts)
+  storage.ts          # Supabase Storage uploads/deletes (server-only)
   auth.ts             # signup/login/sessions (Supabase Auth ready)
-  cloudinary.ts       # signed uploads + image optimization
   stripe.ts           # checkout + webhook helpers
   data/seed.ts        # demo memorial seed data
 components/
@@ -144,8 +151,7 @@ The key design choice: **`lib/repo.ts` is the only data access layer**. Componen
 
 - **Next.js 14** (App Router) + **React 18**
 - **TypeScript**, **Tailwind CSS**
-- **Supabase** (Postgres + Auth) — optional
-- **Cloudinary** — image hosting — optional
+- **Supabase** (Postgres + Auth + Storage) — optional
 - **Stripe** — payments — optional
 
 ---

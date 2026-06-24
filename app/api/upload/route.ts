@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentTenant } from "@/lib/auth";
 import { getMemorialById, addMedia, getMediaByMemorial } from "@/lib/repo";
 import { canUploadMore } from "@/lib/gate";
-import { buildUploadSignature } from "@/lib/cloudinary";
+import { uploadImage, validateImageUpload } from "@/lib/storage";
 
-// POST /api/upload — multipart file upload. Uses Cloudinary when
-// configured; otherwise returns an error explaining the local
-// store can't persist binaries (development without Cloudinary).
+// POST /api/upload — multipart file upload from the family admin
+// gallery. Uploaded to Supabase Storage (bucket "memorial"), then the
+// public URL is recorded as a MediaItem via the repo layer.
 export async function POST(req: Request) {
   const tenant = await getCurrentTenant();
   if (!tenant) {
@@ -34,36 +34,23 @@ export async function POST(req: Request) {
     );
   }
 
-  // --- Cloudinary path (production) ---
-  const sig = await buildUploadSignature("memorial");
-  if (sig) {
-    const cloudForm = new FormData();
-    cloudForm.append("file", file);
-    cloudForm.append("api_key", sig.apiKey);
-    cloudForm.append("timestamp", String(sig.timestamp));
-    cloudForm.append("signature", sig.signature);
-    cloudForm.append("folder", sig.folder);
-
-    const uploadRes = await fetch(sig.uploadUrl, { method: "POST", body: cloudForm });
-    if (!uploadRes.ok) {
-      return NextResponse.json(
-        { error: "Image upload failed. Please try again." },
-        { status: 502 },
-      );
-    }
-    const data = await uploadRes.json();
-    const item = await addMedia(memorial.id, data.secure_url as string, caption);
-    return NextResponse.json(item, { status: 201 });
+  try {
+    validateImageUpload(file);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Invalid image." },
+      { status: 400 },
+    );
   }
 
-  // --- No Cloudinary configured ---
-  // The local JSON store can't host binaries. Guide the user to set
-  // Cloudinary env vars, OR use the "paste a URL" field instead.
-  return NextResponse.json(
-    {
-      error:
-        "Image uploads require Cloudinary. Set the Cloudinary env vars in .env.local, or add an image by URL on the gallery page.",
-    },
-    { status: 501 },
-  );
+  try {
+    const { url } = await uploadImage(file, memorial.id, "memorial");
+    const item = await addMedia(memorial.id, url, caption);
+    return NextResponse.json(item, { status: 201 });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Image upload failed. Please try again." },
+      { status: 502 },
+    );
+  }
 }

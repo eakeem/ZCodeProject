@@ -104,6 +104,35 @@ export const seedData: Database = {
       createdAt: "2024-09-01T10:00:00.000Z",
     },
   ],
+  sharedPhotos: [
+    {
+      id: "photo-1",
+      memorialId: "mem-mary-johnson",
+      url: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+      caption: "Mary at the autumn fair",
+      authorName: "Helena W.",
+      status: "approved",
+      createdAt: "2024-09-04T11:20:00.000Z",
+    },
+    {
+      id: "photo-2",
+      memorialId: "mem-mary-johnson",
+      url: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=900&q=80",
+      caption: "Her famous lemon cake",
+      authorName: "Tom B.",
+      status: "approved",
+      createdAt: "2024-09-05T09:05:00.000Z",
+    },
+    {
+      id: "photo-3",
+      memorialId: "mem-mary-johnson",
+      url: "https://images.unsplash.com/photo-1444465693019-aa0b6392460d?auto=format&fit=crop&w=900&q=80",
+      caption: "A photo from the reunion",
+      authorName: "Priya K.",
+      status: "pending",
+      createdAt: "2024-09-06T16:40:00.000Z",
+    },
+  ],
   tributes: [
     {
       id: "trib-1",

@@ -14,6 +14,7 @@ export interface TierConfig {
   features: string[];
   limits: {
     maxGalleryImages: number; // -1 = unlimited
+    maxSharedPhotos: number; // cap on visitor-shared photos (hard cap, never -1)
     allowsTributes: boolean;
     allowsCustomDomain: boolean;
     removesBranding: boolean;
@@ -86,10 +87,28 @@ export interface Tribute {
   createdAt: string;
 }
 
+// ------------------------------------------------------------
+// Shared photos — visitor-submitted images held for family
+// moderation before appearing on the public memorial. Mirrors
+// the tribute approval flow.
+// ------------------------------------------------------------
+export type SharedPhotoStatus = "pending" | "approved" | "rejected";
+
+export interface SharedPhoto {
+  id: string;
+  memorialId: string;
+  url: string; // Supabase Storage public URL
+  caption?: string;
+  authorName: string; // visitor who submitted the photo
+  status: SharedPhotoStatus;
+  createdAt: string;
+}
+
 export interface Database {
   tenants: Tenant[];
   memorials: Memorial[];
   media: MediaItem[];
+  sharedPhotos: SharedPhoto[];
   tributes: Tribute[];
   // session token -> tenantId (local dev only)
   sessions: Record<string, string>;

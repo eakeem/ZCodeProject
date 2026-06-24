@@ -17,6 +17,7 @@ export const TIERS: Record<Tier, TierConfig> = {
     ],
     limits: {
       maxGalleryImages: 6,
+      maxSharedPhotos: 80,
       allowsTributes: true,
       allowsCustomDomain: false,
       removesBranding: false,
@@ -38,6 +39,7 @@ export const TIERS: Record<Tier, TierConfig> = {
     ],
     limits: {
       maxGalleryImages: 50,
+      maxSharedPhotos: 150,
       allowsTributes: true,
       allowsCustomDomain: false,
       removesBranding: false,
@@ -59,6 +61,7 @@ export const TIERS: Record<Tier, TierConfig> = {
     ],
     limits: {
       maxGalleryImages: -1,
+      maxSharedPhotos: 200,
       allowsTributes: true,
       allowsCustomDomain: true,
       removesBranding: true,

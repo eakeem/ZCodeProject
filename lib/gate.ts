@@ -26,3 +26,14 @@ export function canUploadMore(tier: Tier, currentCount: number): boolean {
   const remaining = remainingGallerySlots(tier, currentCount);
   return remaining === -1 || remaining > 0;
 }
+
+// Shared photos always have a hard cap (never -1). Pass the count of
+// non-rejected photos (approved + pending) — rejected ones free their slot.
+export function remainingSharedSlots(tier: Tier, currentCount: number): number {
+  const max = getTier(tier).limits.maxSharedPhotos;
+  return Math.max(0, max - currentCount);
+}
+
+export function canUploadShared(tier: Tier, currentCount: number): boolean {
+  return remainingSharedSlots(tier, currentCount) > 0;
+}

@@ -15,6 +15,8 @@ import type {
   Tribute,
   TributeStatus,
   TributeType,
+  SharedPhoto,
+  SharedPhotoStatus,
   Tenant,
   Tier,
 } from "./types";
@@ -213,5 +215,59 @@ export async function setTributeStatus(
 export async function deleteTribute(id: string): Promise<void> {
   await writeDb((db) => {
     db.tributes = db.tributes.filter((t) => t.id !== id);
+  });
+}
+
+// ------------------------------------------------------------
+// Shared photos (visitor-submitted, family-moderated)
+// ------------------------------------------------------------
+export async function getSharedPhotosByMemorial(
+  memorialId: string,
+  status?: SharedPhotoStatus,
+): Promise<SharedPhoto[]> {
+  const db = await readDb();
+  return db.sharedPhotos
+    .filter((p) => p.memorialId === memorialId && (!status || p.status === status))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function getApprovedSharedPhotos(
+  memorialId: string,
+): Promise<SharedPhoto[]> {
+  return getSharedPhotosByMemorial(memorialId, "approved");
+}
+
+export async function addSharedPhoto(input: {
+  memorialId: string;
+  url: string;
+  caption?: string;
+  authorName: string;
+}): Promise<SharedPhoto> {
+  const photo: SharedPhoto = {
+    id: uid("photo-"),
+    memorialId: input.memorialId,
+    url: input.url,
+    caption: input.caption,
+    authorName: input.authorName,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+  await writeDb((db) => db.sharedPhotos.push(photo));
+  return photo;
+}
+
+export async function setSharedPhotoStatus(
+  id: string,
+  status: SharedPhotoStatus,
+): Promise<void> {
+  await writeDb((db) => {
+    const p = db.sharedPhotos.find((x) => x.id === id);
+    if (p) p.status = status;
+  });
+}
+
+export async function deleteSharedPhoto(id: string): Promise<void> {
+  await writeDb((db) => {
+    db.sharedPhotos = db.sharedPhotos.filter((p) => p.id !== id);
   });
 }
