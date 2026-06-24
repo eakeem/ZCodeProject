@@ -162,4 +162,4 @@ The key design choice: **`lib/repo.ts` is the only data access layer**. Componen
 - Password hashing uses sha-256 only in the local dev fallback; Supabase Auth (bcrypt) takes over in production.
 - Suggested future work: email notifications to admins on new tribute, per-memorial custom subdomains, visitor analytics on Premium, multilingual support.
 
-Made with care.
+Made by Ellis NT
