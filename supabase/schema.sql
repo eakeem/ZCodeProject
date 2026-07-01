@@ -32,10 +32,24 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   name        text not null,
   tier        tier not null default 'free',
   auth_id     uuid references auth.users(id) on delete set null,
+  password_hash text,
   created_at  timestamptz not null default now()
 );
 
 CREATE INDEX IF NOT EXISTS tenants_auth_id_idx ON public.tenants(auth_id);
+
+-- Add missing password_hash column if the table already existed without it.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'tenants'
+      AND column_name = 'password_hash'
+  ) THEN
+    ALTER TABLE public.tenants ADD COLUMN password_hash text;
+  END IF;
+END $$;
 
 -- ------------------------------------------------------------
 -- Memorials

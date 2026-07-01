@@ -21,7 +21,11 @@ export default async function MemorialAdminPage() {
       tenantId: tenant.id,
       slug: `${base}-${Date.now().toString(36)}`,
       deceasedName: tenant.name || "Memorial",
-      published: false,
+      published: true,
+      tagline: "A memorial page is ready for you.",
+      bio: "This page was created automatically so you can start editing it.",
+      customSections: [],
+      serviceInfo: {},
     });
   }
 

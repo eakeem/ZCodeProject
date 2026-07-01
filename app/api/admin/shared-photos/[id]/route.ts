@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentTenant } from "@/lib/auth";
+import { supabase } from '@/lib/supabase-store';
 import {
   getMemorialById,
   setSharedPhotoStatus,
   deleteSharedPhoto,
-  getDb,
+  
 } from "@/lib/repo";
 import { deleteImage, pathFromPublicUrl } from "@/lib/storage";
 
@@ -26,8 +27,16 @@ export async function PATCH(
   }
 
   // verify this shared photo belongs to the tenant's memorial
-  const db = await getDb();
-  const photo = db.sharedPhotos.find((p) => p.id === id);
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 });
+  }
+
+  const { data: photo } = await supabase
+    .from('shared_photos')
+    .select('*, memorials!inner(*)')
+    .eq('id', id)
+    .single();
+
   if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const memorial = await getMemorialById(photo.memorialId);
   if (!memorial || memorial.tenantId !== tenant.id) {

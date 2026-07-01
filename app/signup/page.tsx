@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import AuthForm from "@/components/AuthForm";
 
-export const metadata = { title: "Create account" };
+export const metadata = { title: "Create an account" };
 
 export default function SignupPage() {
   return (
@@ -21,11 +21,9 @@ export default function SignupPage() {
             Create your account
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Start a memorial in minutes. It's free.
+            Start a memorial in minutes. It’s free.
           </p>
           <div className="mt-6">
-            {/* AuthForm uses useSearchParams(); it must sit inside a
-                Suspense boundary so the page can be statically rendered. */}
             <Suspense fallback={null}>
               <AuthForm mode="signup" />
             </Suspense>

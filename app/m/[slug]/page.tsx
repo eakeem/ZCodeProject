@@ -40,8 +40,8 @@ export default async function MemorialPage({
   const media = await getMediaByMemorial(memorial.id);
   const sharedPhotos = await getApprovedSharedPhotos(memorial.id);
   const approved = await getApprovedTributes(memorial.id);
-  const messages = approved.filter((t) => t.type === "message");
-  const candles = approved.filter((t) => t.type === "candle");
+  const messages = approved.filter((t: { type: string }) => t.type === "message");
+  const candles = approved.filter((t: { type: string }) => t.type === "candle");
 
   return (
     <>

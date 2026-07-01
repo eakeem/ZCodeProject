@@ -1,54 +1,46 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Tenant, Memorial } from './types';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-export type Memorial = {
-  id: string;
-  tenant_id: string;
-  name: string;
-  bio: string | null;
-  slug:string;
-  date_of_birth: string | null;
-  date_of_death: string | null;
-  image_url: string | null;
-  is_public: boolean;
-  created_at: string;
-};
-export type Tier = 'free' | 'pro' | 'basic';
-export type Tenant = {
-  id: string;
-  email: string;
-  password_hash: string;
-  name: string;
-  tier: Tier;
-  created_at: string;
-};
+export const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function adminClient() {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  }
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
-
-
 export async function getTenantByEmail(email: string): Promise<Tenant | null> {
-  const { data, error } = await adminClient()
-    .from('tenants')
-    .select('*')
-    .eq('email', email)
-    .single();
-  
-  if (error && error.code === 'PGRST116') return null;
-  if (error) throw error;
-  return data as Tenant;
+  try {
+    const client = adminClient();
+    const { data, error } = await client
+      .from('tenants')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error && error.code === 'PGRST116') return null;
+    if (error) throw error;
+    return data as Tenant;
+  } catch (error) {
+    console.error('getTenantByEmail error:', error);
+    return null;
+  }
 }
 
 export async function createTenant(tenant: Partial<Tenant>): Promise<Tenant> {
-  const { data, error } = await adminClient()
+  const client = adminClient();
+  const { data, error } = await client
     .from('tenants')
     .insert(tenant)
     .select()
     .single();
-  
+
   if (error) throw error;
   return data as Tenant;
 }
@@ -57,12 +49,13 @@ export async function getTenantBySession(sessionToken: string): Promise<Tenant |
   const jwt = require('jsonwebtoken');
   try {
     const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET!) as { tenantId: string };
-    const { data, error } = await adminClient()
+    const client = adminClient();
+    const { data, error } = await client
       .from('tenants')
       .select('*')
       .eq('id', decoded.tenantId)
       .single();
-    
+
     if (error) return null;
     return data as Tenant;
   } catch {
@@ -71,27 +64,39 @@ export async function getTenantBySession(sessionToken: string): Promise<Tenant |
 }
 
 export async function getTenantById(id: string): Promise<Tenant | null> {
-  const { data, error } = await adminClient()
-    .from('tenants')
-    .select('*')
-    .eq('id', id)
-    .single();
-  
-  if (error) return null;
-  return data as Tenant;
+  try {
+    const client = adminClient();
+    const { data, error } = await client
+      .from('tenants')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) return null;
+    return data as Tenant;
+  } catch {
+    return null;
+  }
 }
+
 export async function getMemorialsByTenant(tenantId: string): Promise<Memorial[]> {
-  const { data, error } = await adminClient()
-    .from('memorials')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false });
-  
-  if (error) {
+  try {
+    const client = adminClient();
+    const { data, error } = await client
+      .from('memorials')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching memorials:', error);
+      return [];
+    }
+    return data as Memorial[];
+  } catch (error) {
     console.error('Error fetching memorials:', error);
     return [];
   }
-  return data as Memorial[];
 }
 
 export async function createMemorial(data: {
@@ -103,12 +108,14 @@ export async function createMemorial(data: {
   image_url?: string;
   is_public?: boolean;
 }): Promise<Memorial> {
-  const { data: memorial, error } = await adminClient()
+  const client = adminClient();
+  const { data: memorial, error } = await client
     .from('memorials')
     .insert(data)
     .select()
     .single();
-  
+
   if (error) throw error;
   return memorial as Memorial;
 }
+

@@ -89,14 +89,16 @@ export async function uploadImage(
   memorialId: string,
   bucket: "memorial" | "shared-photos",
 ): Promise<UploadResult> {
-  if (!isStorageConfigured()) {
-    throw new Error("Image uploads require Supabase. Set the Supabase env vars in .env.local.");
-  }
-
   const mime = (file as File).type || "image/jpeg";
   const ext = extFromMime(mime);
   const stamp = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const objectPath = `${memorialId}/${stamp}.${ext}`;
+
+  if (!isStorageConfigured()) {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+    return { url: dataUrl, path: objectPath, bucket };
+  }
 
   // Convert the incoming File/Blob to a Node Buffer before uploading.
   // On Node 24, undici's handling of Blob/File bodies sent through the

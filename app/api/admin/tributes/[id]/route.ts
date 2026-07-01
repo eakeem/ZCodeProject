@@ -4,7 +4,7 @@ import {
   getMemorialById,
   setTributeStatus,
   deleteTribute,
-  getDb,
+  getTributeById,
 } from "@/lib/repo";
 
 // PATCH /api/admin/tributes/:id  body: { action: "approve"|"reject"|"delete" }
@@ -24,8 +24,7 @@ export async function PATCH(
   }
 
   // verify this tribute belongs to the tenant's memorial
-  const db = await getDb();
-  const tribute = db.tributes.find((t) => t.id === id);
+  const tribute = await getTributeById(id);
   if (!tribute) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const memorial = await getMemorialById(tribute.memorialId);
   if (!memorial || memorial.tenantId !== tenant.id) {

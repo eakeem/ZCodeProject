@@ -15,11 +15,13 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
     const payload =
@@ -34,6 +36,15 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
+
+      if (mode === "signup") {
+        setSuccess("Account created. You can now log in.");
+        setEmail("");
+        setName("");
+        setPassword("");
+        return;
+      }
+
       router.push(redirect);
       router.refresh();
     } catch (e) {
@@ -92,6 +103,12 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       {error && (
         <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">
           {error}
+        </p>
+      )}
+
+      {success && (
+        <p className="rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">
+          {success}
         </p>
       )}
 
