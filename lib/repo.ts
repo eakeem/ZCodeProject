@@ -22,13 +22,23 @@ import {
 } from './local-data'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-function getSupabaseClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+function getSupabaseClient(mode: 'anon' | 'admin' = 'anon') {
+  if (!supabaseUrl) {
+    throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL.');
   }
-  return createClient(supabaseUrl, supabaseAnonKey);
+
+  const key = mode === 'admin'
+    ? process.env.SUPABASE_SERVICE_ROLE_KEY
+    : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!key) {
+    throw new Error(mode === 'admin'
+      ? 'Supabase service role key is not configured.'
+      : 'Supabase anon key is not configured.');
+  }
+
+  return createClient(supabaseUrl, key, { auth: { persistSession: false } });
 }
 
 export type SharedPhotoStatus = 'pending' | 'approved' | 'rejected'
@@ -75,14 +85,7 @@ export async function addSharedPhoto(input: {
   authorName: string;
 }): Promise<SharedPhoto> {
   try {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error('addSharedPhoto auth error:', error);
-      throw error;
-    }
-    const userId = data?.user?.id || null;
-
+    const supabase = getSupabaseClient('admin');
     const photo = {
       memorial_id: input.memorialId,
       url: input.url,
@@ -90,7 +93,7 @@ export async function addSharedPhoto(input: {
       author_name: input.authorName,
       status: "pending" as SharedPhotoStatus,
       created_at: new Date().toISOString(),
-      user_id: userId,
+      user_id: null,
     };
 
     const insertResult = await supabase
@@ -120,7 +123,7 @@ export async function setSharedPhotoStatus(
   id: string,
   status: SharedPhotoStatus,
 ): Promise<void> {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabaseClient('admin');
   const { error } = await supabase
     .from('shared_photos')
     .update({ status })
@@ -129,7 +132,7 @@ export async function setSharedPhotoStatus(
 }
 
 export async function deleteSharedPhoto(id: string): Promise<void> {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabaseClient('admin');
   const { error } = await supabase
     .from('shared_photos')
     .delete()
@@ -139,7 +142,7 @@ export async function deleteSharedPhoto(id: string): Promise<void> {
 
 export async function getTenantByEmail(email: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('tenants')
       .select('*')
@@ -159,14 +162,15 @@ export async function createTenant(data: {
   name: string,
   password_hash: string
 }) {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabaseClient('admin');
   const { data: tenant, error } = await supabase
     .from('tenants')
     .insert({
       id: data.id,
-      email: data.email, 
+      email: data.email,
       name: data.name,
-      password_hash: data.password_hash
+      auth_id: data.id,
+      password_hash: data.password_hash,
     })
     .select()
     .single()
@@ -177,7 +181,7 @@ export async function createTenant(data: {
 
 export async function getTenantById(id: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('tenants')
       .select('*')
@@ -392,7 +396,7 @@ export async function getMediaByMemorial(memorialId: string) {
 
 export async function addMedia(memorialId: string, url: string, caption?: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('media')
       .insert({ memorial_id: memorialId, url, caption })
@@ -414,7 +418,7 @@ export async function addMedia(memorialId: string, url: string, caption?: string
 
 export async function deleteMedia(id: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { error } = await supabase
       .from('media')
       .delete()
@@ -452,7 +456,7 @@ export async function createTribute(input: {
   message: string
 }) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('tributes')
       .insert({
@@ -482,7 +486,7 @@ export async function createTribute(input: {
 
 export async function setTributeStatus(id: string, status: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { error } = await supabase
       .from('tributes')
       .update({ status })
@@ -495,7 +499,7 @@ export async function setTributeStatus(id: string, status: string) {
 
 export async function deleteTribute(id: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { error } = await supabase
       .from('tributes')
       .delete()
@@ -508,7 +512,7 @@ export async function deleteTribute(id: string) {
 
 export async function getTributeById(id: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('tributes')
       .select('*')
