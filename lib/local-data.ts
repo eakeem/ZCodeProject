@@ -12,8 +12,17 @@ export type LocalDatabase = {
 };
 
 export async function readLocalDb(): Promise<LocalDatabase> {
-  const raw = await fs.readFile(dbPath, 'utf8');
-  return JSON.parse(raw) as LocalDatabase;
+  try {
+    const raw = await fs.readFile(dbPath, 'utf8');
+    return JSON.parse(raw) as LocalDatabase;
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') {
+      await fs.mkdir(path.dirname(dbPath), { recursive: true });
+      await fs.writeFile(dbPath, JSON.stringify({ tenants: [], memorials: [], media: [], tributes: [], sharedPhotos: [] }, null, 2) + '\n', 'utf8');
+      return {} as LocalDatabase;
+    }
+    throw error;
+  }
 }
 
 export async function getLocalMemorialsByTenant(tenantId: string) {
