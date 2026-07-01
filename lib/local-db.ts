@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-const dbPath = path.join(process.cwd(), 'data', 'db.json');
+const dbPath = process.env.LOCAL_DB_PATH || path.join('/tmp', 'memorial-db.json');
 
 type LocalTenant = {
   id: string;
@@ -15,11 +15,21 @@ type LocalTenant = {
 };
 
 async function readDb() {
-  const raw = await fs.readFile(dbPath, 'utf8');
-  return JSON.parse(raw) as { tenants?: LocalTenant[] };
+  try {
+    const raw = await fs.readFile(dbPath, 'utf8');
+    return JSON.parse(raw) as { tenants?: LocalTenant[] };
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') {
+      await fs.mkdir(path.dirname(dbPath), { recursive: true });
+      await fs.writeFile(dbPath, JSON.stringify({ tenants: [] }, null, 2) + '\n', 'utf8');
+      return { tenants: [] };
+    }
+    throw error;
+  }
 }
 
 async function writeDb(db: { tenants?: LocalTenant[] }) {
+  await fs.mkdir(path.dirname(dbPath), { recursive: true });
   await fs.writeFile(dbPath, JSON.stringify(db, null, 2) + '\n', 'utf8');
 }
 
