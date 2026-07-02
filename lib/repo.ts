@@ -38,7 +38,7 @@ function snakeToCamel(obj: any): any {
   return Object.keys(obj).reduce((acc, key) => {
     const camelKey = key.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
     const value = obj[key];
-    acc[camelKey] = typeof value === 'object' ? snakeToCamel(value) : value;
+    acc[camelKey] = typeof value === 'object' && value !== null ? snakeToCamel(value) : value;
     return acc;
   }, {} as any);
 }
