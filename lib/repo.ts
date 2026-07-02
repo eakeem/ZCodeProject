@@ -234,7 +234,7 @@ export async function getMemorialById(id: string) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('memorials')
       .select('*')
@@ -278,7 +278,7 @@ export async function getMemorialsByTenant(tenantId: string) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('memorials')
       .select('*')
@@ -434,7 +434,7 @@ export async function getMediaByMemorial(memorialId: string) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('media')
       .select('*')
@@ -608,7 +608,7 @@ export async function getApprovedSharedPhotos(memorialId: string) {
 }
 
 export async function setTenantTier(id: string, tier: string) {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabaseClient('admin');
   const { error } = await supabase
     .from('tenants')
     .update({ tier })
