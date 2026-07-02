@@ -310,10 +310,10 @@ export async function createMemorial(data: any) {
   } catch (err) {
     console.error('createMemorial failed, falling back to local:', err);
     const localMemorial = await upsertLocalMemorial({
-      id: insertData.id || `mem-${Date.now()}`,
+      id: `mem-${Date.now()}`,
       tenantId: insertData.tenant_id,
       slug: insertData.slug,
-      deceasedName: insertData.deceased_name || insertData.deceasedName || 'Memorial',
+      deceasedName: insertData.deceased_name || 'Memorial',
       birthDate: insertData.birth_date,
       passingDate: insertData.passing_date,
       tagline: insertData.tagline,
