@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { getTenantByEmail, createTenant } from './repo'
+import { getTenantByEmail, getTenantById, createTenant } from './repo'
 import { getTenantBySession } from './supabase-store'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
@@ -58,39 +58,53 @@ export async function signUp(input: {email: string, name: string, password: stri
         user_metadata: { name: input.name },
       })
 
-      if (!authError && authData.user) {
-        const password_hash = await bcrypt.hash(input.password, 10)
-        const localTenant = await createLocalTenant({
-          id: authData.user.id,
-          email: input.email,
-          name: input.name,
-          passwordHash: password_hash,
-        })
-        try {
-          await createTenant({
+      if (authError) {
+        console.error('Supabase auth.admin.createUser failed:', authError);
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error('Auth user created but no user data returned');
+      }
+
+      const password_hash = await bcrypt.hash(input.password, 10)
+      
+      // CRITICAL: Check if tenant exists, create only if it doesn't
+      let supabaseTenant;
+      try {
+        // First check if tenant already exists
+        const existingTenant = await getTenantById(authData.user.id);
+        if (existingTenant) {
+          console.log('Tenant already exists:', existingTenant);
+          supabaseTenant = existingTenant;
+        } else {
+          // Only create if it doesn't exist
+          supabaseTenant = await createTenant({
             id: authData.user.id,
             email: input.email,
             name: input.name,
             password_hash,
           })
-        } catch (remoteTenantError) {
-          console.warn('Remote tenant record sync skipped:', remoteTenantError)
+          console.log('Supabase tenant created successfully:', supabaseTenant);
         }
-        return { ok: true, tenant: { id: localTenant.id, email: localTenant.email, name: localTenant.name } }
+      } catch (remoteTenantError) {
+        console.error('Failed to create/fetch tenant in Supabase:', remoteTenantError);
+        throw remoteTenantError;
       }
+
+      // Also create local tenant as backup
+      const localTenant = await createLocalTenant({
+        id: authData.user.id,
+        email: input.email,
+        name: input.name,
+        passwordHash: password_hash,
+      })
+
+      return { ok: true, tenant: { id: supabaseTenant.id || localTenant.id, email: input.email, name: input.name } }
     } catch (supabaseError: any) {
-      console.warn('Supabase signup fallback triggered:', supabaseError?.message || supabaseError)
+      console.error('Supabase signup failed:', supabaseError?.message || supabaseError);
+      return { ok: false, error: supabaseError?.message || "Signup failed" }
     }
-
-    const password_hash = await bcrypt.hash(input.password, 10)
-    const tenant = await createLocalTenant({
-      id: `tenant-${Date.now()}`,
-      email: input.email,
-      name: input.name,
-      passwordHash: password_hash,
-    })
-
-    return { ok: true, tenant: { id: tenant.id, email: tenant.email, name: tenant.name } }
   } catch (e: any) {
     console.error("signUp error:", e)
     return { ok: false, error: e.message || "Database error" }

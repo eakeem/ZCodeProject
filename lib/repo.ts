@@ -43,11 +43,13 @@ function getSupabaseClient(mode: 'anon' | 'admin' = 'anon') {
     : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!key) {
-    throw new Error(mode === 'admin'
-      ? 'Supabase service role key is not configured.'
-      : 'Supabase anon key is not configured.');
+    const missing = mode === 'admin' ? 'SUPABASE_SERVICE_ROLE_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY';
+    const msg = `Supabase ${missing} is not configured. Have you set this env var?`;
+    console.error(msg, { hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY, hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY });
+    throw new Error(msg);
   }
 
+  console.log(`Using Supabase ${mode} client with URL: ${supabaseUrl}`);
   return createClient(supabaseUrl, key, { auth: { persistSession: false } });
 }
 
@@ -107,7 +109,6 @@ export async function addSharedPhoto(input: {
       author_name: input.authorName,
       status: "pending" as SharedPhotoStatus,
       created_at: new Date().toISOString(),
-      user_id: null,
     };
 
     const insertResult = await supabase
@@ -117,9 +118,14 @@ export async function addSharedPhoto(input: {
       .single();
 
     const { data: insertedPhoto, error: insertError } = insertResult;
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('addSharedPhoto Supabase error:', insertError);
+      throw insertError;
+    }
+    console.log('addSharedPhoto Supabase success:', insertedPhoto);
     return insertedPhoto as SharedPhoto;
-  } catch {
+  } catch (err) {
+    console.error('addSharedPhoto failed, falling back to local:', err);
     const localPhoto = {
       id: `shared-${Date.now()}`,
       memorialId: input.memorialId,
@@ -274,16 +280,20 @@ export async function createMemorial(data: any) {
   // For real Supabase users, always use Supabase first — no local fallback for writes
   const client = getSupabaseClient('admin');
   const insertData = {
-    ...data,
     tenant_id: data.tenantId,
+    slug: data.slug,
     deceased_name: data.deceasedName,
     birth_date: data.birthDate,
     passing_date: data.passingDate,
+    tagline: data.tagline,
     hero_image: data.heroImage,
     portrait_image: data.portraitImage,
+    bio: data.bio,
     livestream_url: data.livestreamUrl,
     custom_sections: data.customSections,
     service_info: data.serviceInfo,
+    theme: data.theme || 'ivory',
+    published: data.published ?? false,
   }
   try {
     const { data: memorial, error } = await client
@@ -291,9 +301,14 @@ export async function createMemorial(data: any) {
       .insert(insertData)
       .select()
       .single()
-    if (error) throw error
+    if (error) {
+      console.error('createMemorial Supabase error:', error);
+      throw error;
+    }
+    console.log('createMemorial Supabase success:', memorial);
     return memorial
-  } catch {
+  } catch (err) {
+    console.error('createMemorial failed, falling back to local:', err);
     const localMemorial = await upsertLocalMemorial({
       id: insertData.id || `mem-${Date.now()}`,
       tenantId: insertData.tenant_id,
@@ -492,9 +507,14 @@ export async function createTribute(input: {
       })
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error('createTribute Supabase error:', error);
+      throw error;
+    }
+    console.log('createTribute Supabase success:', data);
     return data;
-  } catch {
+  } catch (err) {
+    console.error('createTribute failed, falling back to local:', err);
     const item = {
       id: `trib-${Date.now()}`,
       memorialId: input.memorialId,
