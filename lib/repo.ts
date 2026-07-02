@@ -23,6 +23,16 @@ import {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+function looksLikeUuid(value?: string | null) {
+  return Boolean(
+    value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+  );
+}
+
+function shouldUseLocalFallback(id?: string | null) {
+  return !looksLikeUuid(id);
+}
+
 function getSupabaseClient(mode: 'anon' | 'admin' = 'anon') {
   if (!supabaseUrl) {
     throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL.');
@@ -58,6 +68,10 @@ export async function getSharedPhotosByMemorial(
   memorialId: string,
   status?: SharedPhotoStatus,
 ): Promise<SharedPhoto[]> {
+  if (shouldUseLocalFallback(memorialId)) {
+    return getLocalSharedPhotosByMemorial(memorialId, status) as Promise<SharedPhoto[]>;
+  }
+
   try {
     const supabase = getSupabaseClient();
     let query = supabase
@@ -84,6 +98,19 @@ export async function addSharedPhoto(input: {
   caption?: string;
   authorName: string;
 }): Promise<SharedPhoto> {
+  if (shouldUseLocalFallback(input.memorialId)) {
+    const localPhoto = {
+      id: `shared-${Date.now()}`,
+      memorialId: input.memorialId,
+      url: input.url,
+      caption: input.caption || undefined,
+      authorName: input.authorName,
+      status: 'pending' as SharedPhotoStatus,
+      createdAt: new Date().toISOString(),
+    };
+    return addLocalSharedPhoto(localPhoto) as Promise<SharedPhoto>;
+  }
+
   try {
     const supabase = getSupabaseClient('admin');
     const photo = {
@@ -195,7 +222,7 @@ export async function getTenantById(id: string) {
 }
 
 export async function getMemorialById(id: string) {
-  if (!id.startsWith('mem-')) {
+  if (shouldUseLocalFallback(id)) {
     return getLocalMemorialById(id);
   }
 
@@ -235,7 +262,7 @@ export async function getMemorialBySlug(slug: string) {
 }
 
 export async function getMemorialsByTenant(tenantId: string) {
-  if (!tenantId.startsWith('tenant-')) {
+  if (shouldUseLocalFallback(tenantId)) {
     return getLocalMemorialsByTenant(tenantId);
   }
 
@@ -257,6 +284,29 @@ export async function getMemorialsByTenant(tenantId: string) {
 }
 
 export async function createMemorial(data: any) {
+  if (shouldUseLocalFallback(data?.tenantId)) {
+    const localMemorial = await upsertLocalMemorial({
+      id: data.id || `mem-${Date.now()}`,
+      tenantId: data.tenantId,
+      slug: data.slug,
+      deceasedName: data.deceasedName || 'Memorial',
+      birthDate: data.birthDate,
+      passingDate: data.passingDate,
+      tagline: data.tagline,
+      heroImage: data.heroImage,
+      portraitImage: data.portraitImage,
+      bio: data.bio,
+      customSections: data.customSections || [],
+      serviceInfo: data.serviceInfo || {},
+      livestreamUrl: data.livestreamUrl,
+      theme: data.theme || 'ivory',
+      published: Boolean(data.published),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    return localMemorial
+  }
+
   const client = getSupabaseClient();
   const insertData = {
     ...data,
@@ -380,6 +430,10 @@ export async function updateMemorial(id: string, patch: Record<string, unknown>)
 }
 
 export async function getMediaByMemorial(memorialId: string) {
+  if (shouldUseLocalFallback(memorialId)) {
+    return getLocalMediaByMemorial(memorialId);
+  }
+
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
@@ -395,6 +449,17 @@ export async function getMediaByMemorial(memorialId: string) {
 }
 
 export async function addMedia(memorialId: string, url: string, caption?: string) {
+  if (shouldUseLocalFallback(memorialId)) {
+    const item = {
+      id: `med-${Date.now()}`,
+      memorialId,
+      url,
+      caption: caption || null,
+      createdAt: new Date().toISOString(),
+    };
+    return addLocalMedia(item);
+  }
+
   try {
     const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
@@ -430,6 +495,10 @@ export async function deleteMedia(id: string) {
 }
 
 export async function getTributesByStatus(memorialId: string, status?: string) {
+  if (shouldUseLocalFallback(memorialId)) {
+    return getLocalTributesByStatus(memorialId, status);
+  }
+
   try {
     const supabase = getSupabaseClient();
     let query = supabase
@@ -455,6 +524,19 @@ export async function createTribute(input: {
   authorName: string
   message: string
 }) {
+  if (shouldUseLocalFallback(input.memorialId)) {
+    const item = {
+      id: `trib-${Date.now()}`,
+      memorialId: input.memorialId,
+      type: input.type,
+      authorName: input.authorName,
+      message: input.message,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    return addLocalTribute(item);
+  }
+
   try {
     const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
@@ -526,6 +608,10 @@ export async function getTributeById(id: string) {
 }
 
 export async function getApprovedSharedPhotos(memorialId: string) {
+  if (shouldUseLocalFallback(memorialId)) {
+    return getLocalApprovedSharedPhotos(memorialId);
+  }
+
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase

@@ -1,7 +1,8 @@
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 
-const dbPath = process.env.LOCAL_DB_PATH || path.join('/tmp', 'memorial-db.json');
+const dbPath = process.env.LOCAL_DB_PATH || path.join(os.tmpdir(), 'memorial-db.json');
 
 export type LocalDatabase = {
   tenants?: Array<any>;
@@ -13,6 +14,7 @@ export type LocalDatabase = {
 
 export async function readLocalDb(): Promise<LocalDatabase> {
   try {
+    await fs.mkdir(path.dirname(dbPath), { recursive: true });
     const raw = await fs.readFile(dbPath, 'utf8');
     return JSON.parse(raw) as LocalDatabase;
   } catch (error: any) {
