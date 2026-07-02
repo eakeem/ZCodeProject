@@ -31,14 +31,24 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   email       text unique not null,
   name        text not null,
   tier        tier not null default 'free',
-  auth_id     uuid references auth.users(id) on delete set null,
   password_hash text,
   created_at  timestamptz not null default now()
 );
 
-CREATE INDEX IF NOT EXISTS tenants_auth_id_idx ON public.tenants(auth_id);
+-- Add auth_id column if missing (migration for existing tables)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'tenants'
+      AND column_name = 'auth_id'
+  ) THEN
+    ALTER TABLE public.tenants ADD COLUMN auth_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
--- Add missing password_hash column if the table already existed without it.
+-- Add password_hash column if missing (migration for existing tables)
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -50,6 +60,9 @@ DO $$ BEGIN
     ALTER TABLE public.tenants ADD COLUMN password_hash text;
   END IF;
 END $$;
+
+-- Now create indexes (after columns are guaranteed to exist)
+CREATE INDEX IF NOT EXISTS tenants_auth_id_idx ON public.tenants(auth_id);
 
 -- ------------------------------------------------------------
 -- Memorials
@@ -143,12 +156,37 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------
+-- Shared Photos (Visitor-submitted images)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.shared_photos (
+  id          uuid primary key default gen_random_uuid(),
+  memorial_id uuid not null references public.memorials(id) on delete cascade,
+  url         text not null,
+  caption     text,
+  author_name text not null,
+  status      text not null default 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+CREATE INDEX IF NOT EXISTS shared_photos_memorial_idx ON public.shared_photos(memorial_id);
+CREATE INDEX IF NOT EXISTS shared_photos_status_idx ON public.shared_photos(status);
+
+-- Add updated_at trigger for shared_photos
+DROP TRIGGER IF EXISTS shared_photos_touch ON public.shared_photos;
+CREATE TRIGGER shared_photos_touch
+  BEFORE UPDATE ON public.shared_photos
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_updated_at();
+
+-- ------------------------------------------------------------
 -- RLS
 -- ------------------------------------------------------------
 ALTER TABLE public.tenants   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.memorials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.media     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tributes  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shared_photos ENABLE ROW LEVEL SECURITY;
 
 -- ------------------------------------------------------------
 -- Helper: current tenant id from the logged-in user
@@ -292,6 +330,50 @@ CREATE POLICY tributes_owner_delete
       SELECT 1
       FROM public.memorials m
       WHERE m.id = public.tributes.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  );
+
+-- ------------------------------------------------------------
+-- shared_photos policies
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS shared_photos_public_insert ON public.shared_photos;
+CREATE POLICY shared_photos_public_insert
+  ON public.shared_photos
+  FOR INSERT
+  WITH CHECK (status = 'pending');
+
+DROP POLICY IF EXISTS shared_photos_public_read ON public.shared_photos;
+CREATE POLICY shared_photos_public_read
+  ON public.shared_photos
+  FOR SELECT
+  USING (
+    status = 'approved'
+    OR EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.shared_photos.memorial_id
+        AND m.published = true
+    )
+  );
+
+DROP POLICY IF EXISTS shared_photos_owner_all ON public.shared_photos;
+CREATE POLICY shared_photos_owner_all
+  ON public.shared_photos
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.shared_photos.memorial_id
+        AND m.tenant_id = public.current_tenant_id()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.memorials m
+      WHERE m.id = public.shared_photos.memorial_id
         AND m.tenant_id = public.current_tenant_id()
     )
   );

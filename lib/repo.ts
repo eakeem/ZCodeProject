@@ -98,19 +98,6 @@ export async function addSharedPhoto(input: {
   caption?: string;
   authorName: string;
 }): Promise<SharedPhoto> {
-  if (shouldUseLocalFallback(input.memorialId)) {
-    const localPhoto = {
-      id: `shared-${Date.now()}`,
-      memorialId: input.memorialId,
-      url: input.url,
-      caption: input.caption || undefined,
-      authorName: input.authorName,
-      status: 'pending' as SharedPhotoStatus,
-      createdAt: new Date().toISOString(),
-    };
-    return addLocalSharedPhoto(localPhoto) as Promise<SharedPhoto>;
-  }
-
   try {
     const supabase = getSupabaseClient('admin');
     const photo = {
@@ -284,30 +271,8 @@ export async function getMemorialsByTenant(tenantId: string) {
 }
 
 export async function createMemorial(data: any) {
-  if (shouldUseLocalFallback(data?.tenantId)) {
-    const localMemorial = await upsertLocalMemorial({
-      id: data.id || `mem-${Date.now()}`,
-      tenantId: data.tenantId,
-      slug: data.slug,
-      deceasedName: data.deceasedName || 'Memorial',
-      birthDate: data.birthDate,
-      passingDate: data.passingDate,
-      tagline: data.tagline,
-      heroImage: data.heroImage,
-      portraitImage: data.portraitImage,
-      bio: data.bio,
-      customSections: data.customSections || [],
-      serviceInfo: data.serviceInfo || {},
-      livestreamUrl: data.livestreamUrl,
-      theme: data.theme || 'ivory',
-      published: Boolean(data.published),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-    return localMemorial
-  }
-
-  const client = getSupabaseClient();
+  // For real Supabase users, always use Supabase first — no local fallback for writes
+  const client = getSupabaseClient('admin');
   const insertData = {
     ...data,
     tenant_id: data.tenantId,
@@ -353,7 +318,8 @@ export async function createMemorial(data: any) {
 }
 
 export async function updateMemorial(id: string, patch: Record<string, unknown>) {
-  const client = getSupabaseClient();
+  // For real Supabase users, always write to Supabase
+  const client = getSupabaseClient('admin');
   const updateData: Record<string, unknown> = {}
   const localPatch: Record<string, unknown> = {}
   if ('deceasedName' in patch) {
@@ -449,17 +415,6 @@ export async function getMediaByMemorial(memorialId: string) {
 }
 
 export async function addMedia(memorialId: string, url: string, caption?: string) {
-  if (shouldUseLocalFallback(memorialId)) {
-    const item = {
-      id: `med-${Date.now()}`,
-      memorialId,
-      url,
-      caption: caption || null,
-      createdAt: new Date().toISOString(),
-    };
-    return addLocalMedia(item);
-  }
-
   try {
     const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
@@ -500,7 +455,7 @@ export async function getTributesByStatus(memorialId: string, status?: string) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     let query = supabase
       .from('tributes')
       .select('*')
@@ -524,19 +479,6 @@ export async function createTribute(input: {
   authorName: string
   message: string
 }) {
-  if (shouldUseLocalFallback(input.memorialId)) {
-    const item = {
-      id: `trib-${Date.now()}`,
-      memorialId: input.memorialId,
-      type: input.type,
-      authorName: input.authorName,
-      message: input.message,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
-    return addLocalTribute(item);
-  }
-
   try {
     const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
@@ -613,7 +555,7 @@ export async function getApprovedSharedPhotos(memorialId: string) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('shared_photos')
       .select('*')
