@@ -242,10 +242,14 @@ export async function getMemorialById(id: string) {
       .single()
     if (error) {
       if (error.code !== 'PGRST116') throw error;
+      console.log('getMemorialById: not found in Supabase, trying local:', id);
       return getLocalMemorialById(id);
     }
-    return data ? snakeToCamel(data) : getLocalMemorialById(id);
-  } catch {
+    const transformed = data ? snakeToCamel(data) : null;
+    console.log('getMemorialById Supabase result:', { id, found: !!transformed, tenantId: transformed?.tenantId });
+    return transformed || getLocalMemorialById(id);
+  } catch (err) {
+    console.error('getMemorialById error:', err);
     return getLocalMemorialById(id);
   }
 }

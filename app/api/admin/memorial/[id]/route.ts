@@ -13,7 +13,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const memorial = await getMemorialById(id);
+  console.log('PATCH /api/admin/memorial/:id', { id, tenantId: tenant.id, memorialFound: !!memorial, memorialTenantId: memorial?.tenantId });
   if (!memorial || memorial.tenantId !== tenant.id) {
+    console.log('Access denied:', { memorialExists: !!memorial, tenantMatch: memorial?.tenantId === tenant.id });
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
