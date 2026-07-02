@@ -29,6 +29,20 @@ function looksLikeUuid(value?: string | null) {
   );
 }
 
+// Transform Supabase snake_case response to camelCase for our types
+function snakeToCamel(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+  if (typeof obj !== 'object') return obj;
+
+  return Object.keys(obj).reduce((acc, key) => {
+    const camelKey = key.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+    const value = obj[key];
+    acc[camelKey] = typeof value === 'object' ? snakeToCamel(value) : value;
+    return acc;
+  }, {} as any);
+}
+
 function shouldUseLocalFallback(id?: string | null) {
   return !looksLikeUuid(id);
 }
@@ -230,7 +244,7 @@ export async function getMemorialById(id: string) {
       if (error.code !== 'PGRST116') throw error;
       return getLocalMemorialById(id);
     }
-    return data || getLocalMemorialById(id);
+    return data ? snakeToCamel(data) : getLocalMemorialById(id);
   } catch {
     return getLocalMemorialById(id);
   }
@@ -248,7 +262,7 @@ export async function getMemorialBySlug(slug: string) {
       if (error.code !== 'PGRST116') throw error;
       return getLocalMemorialBySlug(slug);
     }
-    return data || getLocalMemorialBySlug(slug);
+    return data ? snakeToCamel(data) : getLocalMemorialBySlug(slug);
   } catch {
     return getLocalMemorialBySlug(slug);
   }
@@ -270,7 +284,7 @@ export async function getMemorialsByTenant(tenantId: string) {
       if (error.code !== 'PGRST116') throw error;
       return getLocalMemorialsByTenant(tenantId);
     }
-    return data?.length ? data : getLocalMemorialsByTenant(tenantId);
+    return data?.length ? data.map(snakeToCamel) : getLocalMemorialsByTenant(tenantId);
   } catch {
     return getLocalMemorialsByTenant(tenantId);
   }
@@ -306,7 +320,7 @@ export async function createMemorial(data: any) {
       throw error;
     }
     console.log('createMemorial Supabase success:', memorial);
-    return memorial
+    return snakeToCamel(memorial)
   } catch (err) {
     console.error('createMemorial failed, falling back to local:', err);
     const localMemorial = await upsertLocalMemorial({
@@ -394,7 +408,7 @@ export async function updateMemorial(id: string, patch: Record<string, unknown>)
       .select()
       .single()
     if (error) throw error
-    return memorial
+    return snakeToCamel(memorial)
   } catch {
     const existing = await getLocalMemorialById(id);
     const localMemorial = await upsertLocalMemorial({
