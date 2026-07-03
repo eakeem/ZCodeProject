@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getCurrentTenant } from "@/lib/auth";
-import { supabase } from '@/lib/supabase-store';
 import { deleteImage, pathFromPublicUrl } from "@/lib/storage";
 
 // PATCH /api/admin/shared-photos/:id
@@ -21,9 +21,15 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    if (!supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 });
     }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
 
     const { data: photo, error: photoError } = await supabase
       .from('shared_photos')
@@ -36,7 +42,11 @@ export async function PATCH(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
       console.error('shared photo lookup error:', photoError);
-      return NextResponse.json({ error: "Could not load photo" }, { status: 500 });
+      return NextResponse.json({
+        error: "Could not load photo",
+        details: photoError.message,
+        code: photoError.code,
+      }, { status: 500 });
     }
 
     const { data: memorial, error: memorialError } = await supabase
@@ -55,7 +65,13 @@ export async function PATCH(
           .from('shared_photos')
           .update({ status: 'approved' })
           .eq('id', photo.id);
-        if (error) throw error;
+        if (error) {
+          return NextResponse.json({
+            error: "Could not update shared photo",
+            details: error.message,
+            code: error.code,
+          }, { status: 500 });
+        }
         break;
       }
       case "reject": {
@@ -63,7 +79,13 @@ export async function PATCH(
           .from('shared_photos')
           .update({ status: 'rejected' })
           .eq('id', photo.id);
-        if (error) throw error;
+        if (error) {
+          return NextResponse.json({
+            error: "Could not update shared photo",
+            details: error.message,
+            code: error.code,
+          }, { status: 500 });
+        }
         break;
       }
       case "delete": {
@@ -73,7 +95,13 @@ export async function PATCH(
           .from('shared_photos')
           .delete()
           .eq('id', photo.id);
-        if (error) throw error;
+        if (error) {
+          return NextResponse.json({
+            error: "Could not update shared photo",
+            details: error.message,
+            code: error.code,
+          }, { status: 500 });
+        }
         break;
       }
       default:
@@ -83,6 +111,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('shared photo moderation route error:', error);
-    return NextResponse.json({ error: "Could not update shared photo" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Could not update shared photo";
+    return NextResponse.json({ error: "Could not update shared photo", details: message }, { status: 500 });
   }
 }
