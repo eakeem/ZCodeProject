@@ -172,6 +172,21 @@ CREATE TABLE IF NOT EXISTS public.shared_photos (
 CREATE INDEX IF NOT EXISTS shared_photos_memorial_idx ON public.shared_photos(memorial_id);
 CREATE INDEX IF NOT EXISTS shared_photos_status_idx ON public.shared_photos(status);
 
+-- Add missing updated_at if table already existed without it
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'shared_photos'
+      AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.shared_photos
+    ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+  END IF;
+END $$;
+
 -- Add updated_at trigger for shared_photos
 DROP TRIGGER IF EXISTS shared_photos_touch ON public.shared_photos;
 CREATE TRIGGER shared_photos_touch
