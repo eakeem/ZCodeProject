@@ -5,8 +5,8 @@ import {
   getMemorialById,
   setSharedPhotoStatus,
   deleteSharedPhoto,
-  
 } from "@/lib/repo";
+import { deleteLocalSharedPhoto, getLocalSharedPhotoById, updateLocalSharedPhoto } from "@/lib/local-data";
 import { deleteImage, pathFromPublicUrl } from "@/lib/storage";
 
 // PATCH /api/admin/shared-photos/:id
@@ -39,7 +39,37 @@ export async function PATCH(
 
   if (photoError) {
     if (photoError.code === 'PGRST116') {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      // Fallback for legacy/local IDs (e.g. shared-<timestamp>) shown in admin list.
+      const localPhoto = await getLocalSharedPhotoById(id) as any;
+      if (!localPhoto) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+
+      const localMemorial = await getMemorialById(localPhoto.memorialId);
+      if (!localMemorial || localMemorial.tenantId !== tenant.id) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+
+      try {
+        switch (body.action) {
+          case "approve":
+            await updateLocalSharedPhoto(id, { status: "approved" });
+            break;
+          case "reject":
+            await updateLocalSharedPhoto(id, { status: "rejected" });
+            break;
+          case "delete":
+            await deleteLocalSharedPhoto(id);
+            break;
+          default:
+            return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+        }
+      } catch (error) {
+        console.error('local shared photo moderation action error:', error);
+        return NextResponse.json({ error: "Could not update shared photo" }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true });
     }
     console.error('shared photo lookup error:', photoError);
     return NextResponse.json({ error: "Could not load photo" }, { status: 500 });

@@ -68,6 +68,11 @@ export async function getLocalSharedPhotosByMemorial(memorialId: string, status?
   return items.filter((photo) => photo.status === status);
 }
 
+export async function getLocalSharedPhotoById(id: string) {
+  const db = await readLocalDb();
+  return (db.sharedPhotos || []).find((photo) => photo.id === id);
+}
+
 export async function addLocalSharedPhoto(photo: any) {
   const db = await readLocalDb();
   db.sharedPhotos = db.sharedPhotos || [];
