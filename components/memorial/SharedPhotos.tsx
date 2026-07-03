@@ -26,8 +26,9 @@ export default function SharedPhotos({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const file = (e.currentTarget.elements.namedItem("file") as HTMLInputElement)
-      ?.files?.[0];
+    const form = e.currentTarget;
+    const fileInput = form.elements.namedItem("file") as HTMLInputElement | null;
+    const file = fileInput?.files?.[0];
     if (!name.trim()) {
       setStatus({ kind: "error", msg: "Please add your name." });
       return;
@@ -57,7 +58,7 @@ export default function SharedPhotos({
       setName("");
       setCaption("");
       setFileName("");
-      (e.currentTarget.elements.namedItem("file") as HTMLInputElement).value = "";
+      if (fileInput) fileInput.value = "";
     } catch (err) {
       setStatus({
         kind: "error",

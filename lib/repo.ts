@@ -497,7 +497,7 @@ export async function getTributesByStatus(memorialId: string, status?: string) {
     if (status) query = query.eq('status', status)
     const { data, error } = await query.order('created_at', { ascending: false })
     if (error) throw error
-    return data || []
+    return data?.map(snakeToCamel) || []
   } catch {
     return getLocalTributesByStatus(memorialId, status);
   }
@@ -531,7 +531,7 @@ export async function createTribute(input: {
       throw error;
     }
     console.log('createTribute Supabase success:', data);
-    return data;
+    return snakeToCamel(data);
   } catch (err) {
     console.error('createTribute failed, falling back to local:', err);
     const item = {
@@ -582,7 +582,7 @@ export async function getTributeById(id: string) {
       .eq('id', id)
       .single();
     if (error && error.code !== 'PGRST116') throw error;
-    return data || getLocalTributeById(id);
+    return data ? snakeToCamel(data) : getLocalTributeById(id);
   } catch {
     return getLocalTributeById(id);
   }
