@@ -10,14 +10,20 @@ export default function SharedPhotoModeration({
 }) {
   const [items, setItems] = useState<SharedPhoto[]>(initial);
   const [active, setActive] = useState<SharedPhoto | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function act(id: string, action: "approve" | "reject" | "delete") {
+    setError(null);
     const res = await fetch(`/api/admin/shared-photos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Could not update shared photo.");
+      return;
+    }
     setItems((list) =>
       action === "delete"
         ? list.filter((p) => p.id !== id)
@@ -38,6 +44,11 @@ export default function SharedPhotoModeration({
 
   return (
     <div className="space-y-8">
+      {error && (
+        <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">
+          {error}
+        </p>
+      )}
       {pending.length > 0 && (
         <Group
           title={`Awaiting your review (${pending.length})`}
