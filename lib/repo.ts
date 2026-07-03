@@ -71,13 +71,12 @@ export type SharedPhotoStatus = 'pending' | 'approved' | 'rejected'
 
 export type SharedPhoto = {
   id: string
-  memorial_id: string
+  memorialId: string
   url: string
-  caption: string | null
-  author_name: string
+  caption?: string
+  authorName: string
   status: SharedPhotoStatus
-  created_at: string
-  user_id: string | null  // <- add this if your table has user_id
+  createdAt: string
 }
 
 export async function getSharedPhotosByMemorial(
@@ -102,7 +101,7 @@ export async function getSharedPhotosByMemorial(
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data as SharedPhoto[]) || [];
+    return data?.map(snakeToCamel) || [];
   } catch {
     return getLocalSharedPhotosByMemorial(memorialId, status) as Promise<SharedPhoto[]>;
   }
@@ -137,7 +136,7 @@ export async function addSharedPhoto(input: {
       throw insertError;
     }
     console.log('addSharedPhoto Supabase success:', insertedPhoto);
-    return insertedPhoto as SharedPhoto;
+    return snakeToCamel(insertedPhoto) as SharedPhoto;
   } catch (err) {
     console.error('addSharedPhoto failed, falling back to local:', err);
     const localPhoto = {

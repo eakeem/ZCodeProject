@@ -38,7 +38,7 @@ export async function PATCH(
     .single();
 
   if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const memorial = await getMemorialById(photo.memorialId);
+  const memorial = await getMemorialById(photo.memorial_id);
   if (!memorial || memorial.tenantId !== tenant.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
