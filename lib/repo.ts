@@ -89,7 +89,7 @@ export async function getSharedPhotosByMemorial(
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     let query = supabase
       .from('shared_photos')
       .select('*')
@@ -256,11 +256,12 @@ export async function getMemorialById(id: string) {
 
 export async function getMemorialBySlug(slug: string) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient('admin');
     const { data, error } = await supabase
       .from('memorials')
       .select('*')
       .eq('slug', slug)
+      .eq('published', true)
       .single()
     if (error) {
       if (error.code !== 'PGRST116') throw error;
