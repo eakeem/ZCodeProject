@@ -3,6 +3,8 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import Candle from "@/components/Candle";
 
+const DEMO_MEMORIAL_SLUG = process.env.NEXT_PUBLIC_DEMO_MEMORIAL_SLUG || "vercel-test-family-mr354xyk";
+
 export default function HomePage() {
   return (
     <>
@@ -42,7 +44,7 @@ export default function HomePage() {
                 Create a memorial — free
               </Link>
               <Link
-                href="/m/mary-johnson"
+                href={`/m/${DEMO_MEMORIAL_SLUG}`}
                 className="rounded-full border border-white/40 px-8 py-3.5 font-medium text-white backdrop-blur transition hover:bg-white/10"
               >
                 View a live demo

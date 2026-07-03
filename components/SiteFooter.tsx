@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+const DEMO_MEMORIAL_SLUG = process.env.NEXT_PUBLIC_DEMO_MEMORIAL_SLUG || "vercel-test-family-mr354xyk";
+
 export default function SiteFooter() {
   return (
     <footer className="border-t border-ink-100 bg-ink-50">
@@ -19,7 +21,7 @@ export default function SiteFooter() {
           <h4 className="font-semibold text-ink-800">Memorials</h4>
           <ul className="mt-3 space-y-2 text-ink-500">
             <li>
-              <Link href="/m/mary-johnson" className="hover:text-ink-800">
+              <Link href={`/m/${DEMO_MEMORIAL_SLUG}`} className="hover:text-ink-800">
                 View a demo memorial
               </Link>
             </li>
