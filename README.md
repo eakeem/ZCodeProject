@@ -163,3 +163,4 @@ The key design choice: **`lib/repo.ts` is the only data access layer**. Componen
 - Suggested future work: email notifications to admins on new tribute, per-memorial custom subdomains, visitor analytics on Premium, multilingual support.
 
 Made by Ellis NT
+Ellis next technology
