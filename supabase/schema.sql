@@ -247,12 +247,28 @@ CREATE POLICY memorials_public_read
   FOR SELECT
   USING (published = true);
 
-DROP POLICY IF EXISTS memorials_owner_all ON public.memorials;
-CREATE POLICY memorials_owner_all
+-- Admin-only: only authenticated users whose profile is_admin = true
+-- can read, insert, update, or delete memorials.
+DROP POLICY IF EXISTS memorials_admin_all ON public.memorials;
+CREATE POLICY memorials_admin_all
   ON public.memorials
   FOR ALL
-  USING (tenant_id = public.current_tenant_id())
-  WITH CHECK (tenant_id = public.current_tenant_id());
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND is_admin = true
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
+-- Legacy owner policy removed: dashboard is now admin-only.
+DROP POLICY IF EXISTS memorials_owner_all ON public.memorials;
 
 -- ------------------------------------------------------------
 -- media policies

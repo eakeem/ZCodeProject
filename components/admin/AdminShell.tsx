@@ -7,7 +7,8 @@ import { logoutAndRedirect as logoutAction } from "@/app/admin/actions";
 
 
 const NAV = [
-  { href: "/admin", label: "Overview", icon: "🏠" },
+  { href: "/admin", label: "Home", icon: "🏠" },
+  { href: "/admin/overview", label: "Overview", icon: "📊" },
   { href: "/admin/memorial", label: "Memorial page", icon: "🕯️" },
   { href: "/admin/gallery", label: "Gallery", icon: "🖼️" },
   { href: "/admin/tributes", label: "Tributes", icon: "✉️" },

@@ -48,12 +48,18 @@ export async function createTenant(tenant: Partial<Tenant>): Promise<Tenant> {
 export async function getTenantBySession(sessionToken: string): Promise<Tenant | null> {
   const jwt = require('jsonwebtoken');
   try {
-    const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET!) as { tenantId: string };
+    const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET!) as {
+      tenantId?: string;
+      authUserId?: string;
+    };
+    const lookupId = decoded.tenantId || decoded.authUserId;
+    if (!lookupId) return null;
+
     const client = adminClient();
     const { data, error } = await client
       .from('tenants')
       .select('*')
-      .eq('id', decoded.tenantId)
+      .eq('id', lookupId)
       .single();
 
     if (error) return null;

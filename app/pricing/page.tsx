@@ -56,14 +56,14 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/signup"
+                  href="/login"
                   className={`mt-8 block rounded-full px-6 py-3 text-center text-sm font-medium transition ${
                     featured
                       ? "bg-candle-500 text-white hover:bg-candle-600"
                       : "bg-ink-900 text-ink-50 hover:bg-ink-800"
                   }`}
                 >
-                  {t.priceMonthly === 0 ? "Start free" : `Choose ${t.name}`}
+                  Admin login
                 </Link>
               </div>
             );

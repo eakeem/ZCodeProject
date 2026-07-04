@@ -27,17 +27,11 @@ export default function LoginPage() {
             {/* AuthForm uses useSearchParams(); it must sit inside a
                 Suspense boundary so the page can be statically rendered. */}
             <Suspense fallback={null}>
-              <AuthForm mode="login" />
+              <AuthForm />
             </Suspense>
           </div>
         </div>
-        <p className="mt-6 text-center text-sm text-ink-500">
-          New here?{" "}
-          <Link href="/signup" className="font-medium text-candle-700 hover:underline">
-            Create an account
-          </Link>
-        </p>
-        <p className="mt-2 text-center text-xs text-ink-400">
+        <p className="mt-6 text-center text-xs text-ink-400">
           Demo login · <code>admin@memorial.demo</code> / <code>demo1234</code>
         </p>
       </div>

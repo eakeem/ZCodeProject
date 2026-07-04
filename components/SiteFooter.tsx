@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-const DEMO_MEMORIAL_SLUG = process.env.NEXT_PUBLIC_DEMO_MEMORIAL_SLUG || "vercel-test-family-mr354xyk";
-
 export default function SiteFooter() {
   return (
     <footer className="border-t border-ink-100 bg-ink-50">
@@ -21,18 +19,8 @@ export default function SiteFooter() {
           <h4 className="font-semibold text-ink-800">Memorials</h4>
           <ul className="mt-3 space-y-2 text-ink-500">
             <li>
-              <Link href={`/m/${DEMO_MEMORIAL_SLUG}`} className="hover:text-ink-800">
-                View a demo memorial
-              </Link>
-            </li>
-            <li>
               <Link href="/pricing" className="hover:text-ink-800">
                 Pricing
-              </Link>
-            </li>
-            <li>
-              <Link href="/signup" className="hover:text-ink-800">
-                Create a memorial
               </Link>
             </li>
           </ul>
@@ -54,7 +42,7 @@ export default function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-ink-100 py-6 text-center text-xs text-ink-400">
-        © {new Date().getFullYear()} Memorial. Made with care.
+        © {new Date().getFullYear()}  Memforial. All rights reserved. By Ellis NT
       </div>
     </footer>
   );

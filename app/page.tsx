@@ -3,8 +3,6 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import Candle from "@/components/Candle";
 
-const DEMO_MEMORIAL_SLUG = process.env.NEXT_PUBLIC_DEMO_MEMORIAL_SLUG || "vercel-test-family-mr354xyk";
-
 export default function HomePage() {
   return (
     <>
@@ -33,21 +31,15 @@ export default function HomePage() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-ink-100">
               Create a lasting memorial page in minutes. Gather photos,
-              receive warm tributes, and light virtual candles — a space
+              receive warm tributes, and light virtual candles a space
               where family and friends can gather, no matter the distance.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/signup"
+                href="/login"
                 className="rounded-full bg-candle-500 px-8 py-3.5 font-medium text-white shadow-lg transition hover:bg-candle-600"
               >
-                Create a memorial — free
-              </Link>
-              <Link
-                href={`/m/${DEMO_MEMORIAL_SLUG}`}
-                className="rounded-full border border-white/40 px-8 py-3.5 font-medium text-white backdrop-blur transition hover:bg-white/10"
-              >
-                View a live demo
+                Admin login
               </Link>
             </div>
           </div>
@@ -138,7 +130,7 @@ export default function HomePage() {
                 {
                   n: "3",
                   t: "Share & gather",
-                  b: "Share the link. Visitors leave tributes and light candles — all moderated by you.",
+                  b: "Share the link. Visitors leave tributes and light candles all moderated by you.",
                 },
               ].map((s) => (
                 <div key={s.n} className="text-center">
@@ -167,10 +159,10 @@ export default function HomePage() {
               only if you'd like more.
             </p>
             <Link
-              href="/signup"
+              href="/login"
               className="mt-8 inline-block rounded-full bg-candle-500 px-8 py-3.5 font-medium text-white transition hover:bg-candle-600"
             >
-              Get started — it's free
+              Admin login
             </Link>
           </div>
         </section>

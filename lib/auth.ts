@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import https from 'https'
 import { getTenantByEmail, getTenantById, createTenant } from './repo'
 import { getTenantBySession } from './supabase-store'
 import { createClient } from '@supabase/supabase-js'
@@ -10,6 +11,32 @@ import {
   getLocalTenantById,
   verifyLocalPassword,
 } from './local-db'
+
+function httpsRequest(
+  hostname: string,
+  path: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: object,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname, port: 443, path, method, headers, timeout: 30000 },
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => resolve({ status: res.statusCode || 0, body: data }))
+      },
+    )
+    req.on('error', reject)
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('timeout'))
+    })
+    if (body) req.write(JSON.stringify(body))
+    req.end()
+  })
+}
 
 function getAnonSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,82 +60,40 @@ const SESSION_COOKIE_NAME = 'memorial_session'
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-local-secret'
 
-export async function signUp(input: {email: string, name: string, password: string}) {
+async function getProfileById(admin: ReturnType<typeof getAdminSupabase>, userId: string) {
   try {
-    if (input.password.length < 8) {
-      return { ok: false, error: "Password must be at least 8 chars" }
-    }
-
-    const localExisting = await getLocalTenantByEmail(input.email)
-    if (localExisting) {
-      return { ok: false, error: "An account with that email already exists." }
-    }
-
-    const existing = await getTenantByEmail(input.email)
-    if (existing) {
-      return { ok: false, error: "An account with that email already exists." }
-    }
-
-    try {
-      const adminSupabase = getAdminSupabase();
-      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-        email: input.email,
-        password: input.password,
-        email_confirm: true,
-        user_metadata: { name: input.name },
-      })
-
-      if (authError) {
-        console.error('Supabase auth.admin.createUser failed:', authError);
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error('Auth user created but no user data returned');
-      }
-
-      const password_hash = await bcrypt.hash(input.password, 10)
-      
-      // CRITICAL: Check if tenant exists, create only if it doesn't
-      let supabaseTenant;
-      try {
-        // First check if tenant already exists
-        const existingTenant = await getTenantById(authData.user.id);
-        if (existingTenant) {
-          console.log('Tenant already exists:', existingTenant);
-          supabaseTenant = existingTenant;
-        } else {
-          // Only create if it doesn't exist
-          supabaseTenant = await createTenant({
-            id: authData.user.id,
-            email: input.email,
-            name: input.name,
-            password_hash,
-          })
-          console.log('Supabase tenant created successfully:', supabaseTenant);
-        }
-      } catch (remoteTenantError) {
-        console.error('Failed to create/fetch tenant in Supabase:', remoteTenantError);
-        throw remoteTenantError;
-      }
-
-      // Also create local tenant as backup
-      const localTenant = await createLocalTenant({
-        id: authData.user.id,
-        email: input.email,
-        name: input.name,
-        passwordHash: password_hash,
-      })
-
-      return { ok: true, tenant: { id: supabaseTenant.id || localTenant.id, email: input.email, name: input.name } }
-    } catch (supabaseError: any) {
-      console.error('Supabase signup failed:', supabaseError?.message || supabaseError);
-      return { ok: false, error: supabaseError?.message || "Signup failed" }
-    }
-  } catch (e: any) {
-    console.error("signUp error:", e)
-    return { ok: false, error: e.message || "Database error" }
+    const { data, error } = await admin
+      .from('profiles')
+      .select('id,email,is_admin')
+      .eq('id', userId)
+      .single()
+    if (error || !data) return null
+    return data as { id: string; email: string; is_admin: boolean }
+  } catch {
+    return null
   }
+}
+
+export function createSessionToken(payload: {
+  tenantId: string
+  authUserId?: string
+  tenantEmail: string
+  tenantName: string
+  tier?: string
+  isAdmin?: boolean
+}) {
+  return jwt.sign(
+    {
+      tenantId: payload.tenantId,
+      authUserId: payload.authUserId,
+      tenantEmail: payload.tenantEmail,
+      tenantName: payload.tenantName,
+      tier: payload.tier || 'free',
+      isAdmin: payload.isAdmin ?? false,
+    },
+    JWT_SECRET,
+    { expiresIn: `${SESSION_MAX_AGE}s` },
+  )
 }
 
 export async function signIn(email: string, password: string) {
@@ -118,21 +103,48 @@ export async function signIn(email: string, password: string) {
     }
 
     try {
-      const anonSupabase = getAnonSupabase();
-      const { data, error } = await anonSupabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      // The Supabase Auth SDK's fetch implementation intermittently times out
+      // in this environment, while Node's native https module is reliable.
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      const hostname = new URL(supabaseUrl).hostname
+      const { status, body } = await httpsRequest(
+        hostname,
+        '/auth/v1/token?grant_type=password',
+        'POST',
+        {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+        },
+        { email, password },
+      )
 
-      if (!error && data.session?.user) {
-        const tenant = await getTenantByEmail(email)
-        if (tenant) {
-          const token = jwt.sign({ tenantId: tenant.id }, JWT_SECRET, {
-            expiresIn: `${SESSION_MAX_AGE}s`,
-          })
-          return { ok: true, token }
-        }
+      const authData = JSON.parse(body) as {
+        user?: { id: string; user_metadata?: { name?: string } }
+        access_token?: string
       }
+
+      if (status >= 200 && status < 300 && authData.user?.id) {
+        const adminSupabase = getAdminSupabase()
+        const sessionUserId = authData.user.id
+        const profile = await getProfileById(adminSupabase, sessionUserId)
+        const tenant = await getTenantByEmail(email)
+        // Support admin-only accounts that exist in Supabase Auth + profiles
+        // but don't have a legacy tenants row yet.
+        const tenantId = tenant?.id || sessionUserId
+        const token = createSessionToken({
+          tenantId,
+          authUserId: sessionUserId,
+          tenantEmail: tenant?.email || profile?.email || email,
+          tenantName: tenant?.name || authData.user.user_metadata?.name || profile?.email || "Tenant",
+          tier: (tenant?.tier as string | undefined) || "free",
+          isAdmin: profile?.is_admin ?? false,
+        })
+        return { ok: true, token }
+      }
+
+      console.warn('Supabase password login returned non-2xx:', status, body.slice(0, 200))
     } catch (supabaseError: any) {
       console.warn('Supabase login fallback triggered:', supabaseError?.message || supabaseError)
     }
@@ -147,8 +159,36 @@ export async function signIn(email: string, password: string) {
       return { ok: false, error: 'Invalid login.' }
     }
 
-    const token = jwt.sign({ tenantId: localTenant.id }, JWT_SECRET, {
-      expiresIn: `${SESSION_MAX_AGE}s`,
+    // When Supabase Auth is temporarily unreachable, local fallback login can
+    // still succeed. In that case, prefer the profiles/auth user id for the
+    // session token so admin checks (which query profiles by id) continue
+    // to work.
+    let sessionTenantId = localTenant.id
+    let sessionAuthUserId: string | undefined
+    let isAdmin = false
+    try {
+      const adminSupabase = getAdminSupabase()
+      const { data: profileRow } = await adminSupabase
+        .from('profiles')
+        .select('id,is_admin')
+        .eq('email', email)
+        .single()
+
+      if (profileRow?.id) {
+        sessionAuthUserId = profileRow.id
+        isAdmin = !!profileRow.is_admin
+      }
+    } catch {
+      // keep local tenant id as a fallback
+    }
+
+    const token = createSessionToken({
+      tenantId: sessionTenantId,
+      authUserId: sessionAuthUserId,
+      tenantEmail: localTenant.email,
+      tenantName: localTenant.name,
+      tier: (localTenant.tier as string | undefined) || "free",
+      isAdmin,
     })
 
     return { ok: true, token }
@@ -169,7 +209,13 @@ export async function getCurrentTenant() {
     if (!token) return null;
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { tenantId?: string };
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        tenantId?: string;
+        authUserId?: string;
+        tenantEmail?: string;
+        tenantName?: string;
+        tier?: string;
+      };
       if (decoded.tenantId) {
         const localTenant = await getLocalTenantById(decoded.tenantId);
         if (localTenant) {
@@ -181,6 +227,27 @@ export async function getCurrentTenant() {
             tier: (localTenant.tier as any) || 'free',
           };
         }
+
+        const remoteTenant = await getTenantById(decoded.tenantId);
+        if (remoteTenant) {
+          return {
+            id: remoteTenant.id,
+            email: remoteTenant.email,
+            name: remoteTenant.name,
+            createdAt: (remoteTenant as any).created_at || new Date().toISOString(),
+            tier: ((remoteTenant as any).tier as any) || 'free',
+          };
+        }
+
+        // Final fallback: keep session usable for admin pages even if
+        // upstream tenant lookup is temporarily unavailable.
+        return {
+          id: decoded.tenantId,
+          email: decoded.tenantEmail || '',
+          name: decoded.tenantName || 'Tenant',
+          createdAt: new Date().toISOString(),
+          tier: (decoded.tier as any) || 'free',
+        };
       }
     } catch {
       // fall back to the Supabase-backed session lookup below

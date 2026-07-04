@@ -72,7 +72,7 @@ export default function SharedPhotos({
       <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6">
         <div className="mb-10 text-center">
           <div className="divider mb-3 text-xs uppercase tracking-[0.25em]">
-            Memories shared by friends
+            Memories shared by friends and family
           </div>
           <h2 className="font-serif text-3xl font-semibold text-ink-900 sm:text-4xl">
             Shared photos

@@ -21,7 +21,7 @@ export default function SiteHeader() {
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl">🕯️</span>
           <span className="font-serif text-xl font-semibold text-ink-900">
-            Memorial
+            Memforial
           </span>
         </Link>
 
@@ -37,15 +37,9 @@ export default function SiteHeader() {
           ))}
           <Link
             href="/login"
-            className="text-sm font-medium text-ink-600 transition hover:text-ink-900"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/signup"
             className="rounded-full bg-ink-900 px-5 py-2 text-sm font-medium text-ink-50 transition hover:bg-ink-800"
           >
-            Create a memorial
+            Log in
           </Link>
         </nav>
 
@@ -81,16 +75,9 @@ export default function SiteHeader() {
             <Link
               href="/login"
               onClick={() => setOpen(false)}
-              className="py-3 text-ink-700"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              onClick={() => setOpen(false)}
               className="my-2 rounded-full bg-ink-900 px-5 py-3 text-center text-sm font-medium text-ink-50"
             >
-              Create a memorial
+              Log in
             </Link>
           </nav>
         </div>

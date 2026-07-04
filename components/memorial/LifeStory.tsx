@@ -9,17 +9,25 @@ export default function LifeStory({
   portrait?: MediaItem;
 }) {
   if (!memorial.bio) return null;
+
+  const imageSrc = portrait?.url || memorial.portraitImage || memorial.heroImage || null;
+
   return (
     <section id="story" className="bg-white">
       <div className="mx-auto grid max-w-5xl gap-10 px-4 py-20 sm:px-6 md:grid-cols-[260px_1fr]">
         <div className="mx-auto w-full max-w-[260px] md:mx-0">
           <div className="overflow-hidden rounded-2xl border border-ink-100 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={portrait?.url || memorial.portraitImage || memorial.heroImage}
-              alt={`Portrait of ${memorial.deceasedName}`}
-              className="aspect-square w-full object-cover"
-            />
+            {imageSrc ? (
+              <img
+                src={imageSrc}
+                alt={`Portrait of ${memorial.deceasedName}`}
+                className="aspect-square w-full object-cover"
+              />
+            ) : (
+              <div className="flex aspect-square w-full items-center justify-center bg-ink-100 text-ink-400">
+                <span className="text-4xl">🕯️</span>
+              </div>
+            )}
           </div>
         </div>
         <div>
