@@ -40,7 +40,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Price ID not set for that tier." }, { status: 500 });
   }
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = await (stripe as any).checkout.sessions.create({
     mode: "subscription",

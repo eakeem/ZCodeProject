@@ -8,7 +8,9 @@ export const metadata: Metadata = {
   },
   description:
     "Create a beautiful memorial page to honour a loved one. Share photos, gather tributes, and light virtual candles.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: process.env.NEXT_PUBLIC_APP_URL
+    ? new URL(process.env.NEXT_PUBLIC_APP_URL)
+    : undefined,
   openGraph: {
     title: "Memorial — Honouring lives, together",
     description:
