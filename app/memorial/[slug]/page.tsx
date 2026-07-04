@@ -49,15 +49,15 @@ export default async function MemorialAliasPage({
       <MemorialNavbar name={memorial.deceasedName} />
       <main>
         <Hero memorial={memorial} />
-        <Gallery items={media} />
-        <SharedPhotos memorialId={memorial.id} initial={sharedPhotos} />
-        <LifeStory memorial={memorial} portrait={media[0]} />
         <ServiceInfo memorial={memorial} />
+        <LifeStory memorial={memorial} portrait={media[0]} />
+        <Gallery items={media} />
         <TributeSection
           memorialId={memorial.id}
           initialTributes={messages}
           initialCandles={candles}
         />
+        <SharedPhotos memorialId={memorial.id} initial={sharedPhotos} />
       </main>
       <SiteFooter />
     </>
