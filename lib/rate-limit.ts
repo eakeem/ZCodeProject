@@ -4,14 +4,10 @@ import { Ratelimit } from "@upstash/ratelimit";
 
 const redis = Redis.fromEnv();
 
-const tributeLimit = new Ratelimit({
+const ratelimit = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(1, "60 s"),
-});
-
-const photoLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(1, "60 s"),
+  analytics: true,
 });
 
 async function getIP(): Promise<string> {
@@ -23,32 +19,24 @@ async function getIP(): Promise<string> {
   return "127.0.0.1";
 }
 
-export async function checkTributeRateLimit(
+/**
+ * Returns an error object if the IP has exceeded 1 request per 60 s for this
+ * memorial + type combination, or null if the request is allowed.
+ */
+export async function checkRateLimit(
   memorialId: string,
-): Promise<{ success: true } | { success: false; error: string }> {
+  type: "tribute" | "photo",
+): Promise<{ error: string } | null> {
   const ip = await getIP();
-  const identifier = `${ip}:${memorialId}:tribute`;
-  const { success } = await tributeLimit.limit(identifier);
+  const identifier = `${ip}:${memorialId}:${type}`;
+  const { success } = await ratelimit.limit(identifier);
   if (!success) {
     return {
-      success: false,
-      error: "You can only share 1 tribute every 60 seconds for this memorial.",
+      error:
+        type === "tribute"
+          ? "You can only share 1 tribute every 60 seconds for this memorial."
+          : "You can only upload 1 photo every 60 seconds for this memorial.",
     };
   }
-  return { success: true };
-}
-
-export async function checkPhotoRateLimit(
-  memorialId: string,
-): Promise<{ success: true } | { success: false; error: string }> {
-  const ip = await getIP();
-  const identifier = `${ip}:${memorialId}:photo`;
-  const { success } = await photoLimit.limit(identifier);
-  if (!success) {
-    return {
-      success: false,
-      error: "You can only upload 1 photo every 60 seconds for this memorial.",
-    };
-  }
-  return { success: true };
+  return null;
 }

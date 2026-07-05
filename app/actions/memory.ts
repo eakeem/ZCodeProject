@@ -10,7 +10,7 @@ import {
 } from "@/lib/repo";
 import { canUploadShared } from "@/lib/gate";
 import { uploadImage, validateImageUpload } from "@/lib/storage";
-import { checkPhotoRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function uploadPhoto(formData: FormData) {
   // Honeypot — bots that fill hidden fields are silently rejected
@@ -45,8 +45,8 @@ export async function uploadPhoto(formData: FormData) {
   }
 
   // Rate limit: 1 photo per 60 s per IP per memorial
-  const rl = await checkPhotoRateLimit(memorial.id);
-  if (!rl.success) return { error: rl.error };
+  const rl = await checkRateLimit(memorial.id, "photo");
+  if (rl) return rl;
 
   try {
     validateImageUpload(file);

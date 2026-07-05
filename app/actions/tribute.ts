@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getMemorialById, getMemorialBySlug, createTribute } from "@/lib/repo";
-import { checkTributeRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { TributeType } from "@/lib/types";
 
 export async function addTribute(formData: FormData) {
@@ -31,8 +31,8 @@ export async function addTribute(formData: FormData) {
   }
 
   // Rate limit: 1 tribute per 60 s per IP per memorial
-  const rl = await checkTributeRateLimit(memorial.id);
-  if (!rl.success) return { error: rl.error };
+  const rl = await checkRateLimit(memorial.id, "tribute");
+  if (rl) return rl;
 
   await createTribute({
     memorialId: memorial.id,

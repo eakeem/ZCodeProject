@@ -8,6 +8,7 @@ import {
 } from "@/lib/repo";
 import { canUploadShared } from "@/lib/gate";
 import { uploadImage, validateImageUpload } from "@/lib/storage";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // POST /api/shared-photos — a visitor uploads a photo to a published
 // memorial. The image goes to Supabase Storage (bucket "shared-photos")
@@ -62,6 +63,10 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
+
+  // Rate limit: 1 photo per 60 s per IP per memorial
+  const rl = await checkRateLimit(memorial.id, "photo");
+  if (rl) return NextResponse.json(rl, { status: 429 });
 
   try {
     validateImageUpload(file);

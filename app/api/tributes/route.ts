@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMemorialById, getMemorialBySlug, createTribute } from "@/lib/repo";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { TributeType } from "@/lib/types";
 
 // POST /api/tributes — submit a message or candle for moderation.
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
   if (!memorial || !memorial.published) {
     return NextResponse.json({ error: "Memorial not found." }, { status: 404 });
   }
+
+  // Rate limit: 1 tribute per 60 s per IP per memorial
+  const rl = await checkRateLimit(memorial.id, "tribute");
+  if (rl) return NextResponse.json(rl, { status: 429 });
 
   const tribute = await createTribute({
     memorialId: memorial.id,
