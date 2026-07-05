@@ -24,11 +24,22 @@ export default function SharedPhotos({
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [fileName, setFileName] = useState("");
 
+  const ALLOWED_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/avif",
+  ]);
+  const MAX_BYTES = 10 * 1024 * 1024;
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const fileInput = form.elements.namedItem("file") as HTMLInputElement | null;
     const file = fileInput?.files?.[0];
+
+    // ── Client-side validation ───────────────────────────────────────────
     if (!name.trim()) {
       setStatus({ kind: "error", msg: "Please add your name." });
       return;
@@ -37,34 +48,81 @@ export default function SharedPhotos({
       setStatus({ kind: "error", msg: "Please choose an image to share." });
       return;
     }
+    if (!ALLOWED_TYPES.has(file.type)) {
+      setStatus({
+        kind: "error",
+        msg: "Only JPG, PNG, WebP, GIF, AVIF files are allowed.",
+      });
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setStatus({
+        kind: "error",
+        msg: "This photo is too big. Max size is 10MB. Please choose a smaller image.",
+      });
+      return;
+    }
 
     setStatus({ kind: "submitting" });
+
+    // ── Network request ──────────────────────────────────────────────────
+    let res: Response;
     try {
       const fd = new FormData();
       fd.append("memorialId", memorialId);
       fd.append("authorName", name.trim());
       if (caption.trim()) fd.append("caption", caption.trim());
       fd.append("file", file);
-
-      const res = await fetch("/api/shared-photos", {
-        method: "POST",
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Something went wrong.");
-      }
-      setStatus({ kind: "success" });
-      setName("");
-      setCaption("");
-      setFileName("");
-      if (fileInput) fileInput.value = "";
+      res = await fetch("/api/shared-photos", { method: "POST", body: fd });
     } catch (err) {
+      console.error("[SharedPhotos] fetch error:", err);
       setStatus({
         kind: "error",
-        msg: err instanceof Error ? err.message : "Something went wrong.",
+        msg: "Your internet is slow. Please check your connection and try again.",
       });
+      return;
     }
+
+    // ── Parse response (may not be JSON on 413 or infra errors) ─────────
+    let data: { error?: string } = {};
+    try {
+      data = await res.json();
+    } catch (err) {
+      console.error("[SharedPhotos] response was not JSON (status", res.status, "):", err);
+    }
+
+    if (!res.ok) {
+      console.error("[SharedPhotos] upload failed:", res.status, data);
+      if (res.status === 413) {
+        setStatus({
+          kind: "error",
+          msg: "This photo is too big. Max size is 10MB. Please choose a smaller image.",
+        });
+      } else if (res.status >= 500) {
+        setStatus({
+          kind: "error",
+          msg: "We couldn't upload your photo. Please try again in a moment.",
+        });
+      } else {
+        // 400 / 403 / 429 — use the server message but remap size/type hints
+        const raw = data.error ?? "";
+        let msg = raw || "Something went wrong. Please try again.";
+        if (/larger than|size limit|10\s*mb/i.test(raw)) {
+          msg = "This photo is too big. Max size is 10MB. Please choose a smaller image.";
+        } else if (/jpg|png|webp|gif|avif|mime|type/i.test(raw)) {
+          msg = "Only JPG, PNG, WebP, GIF, AVIF files are allowed.";
+        }
+        setStatus({ kind: "error", msg });
+      }
+      return;
+    }
+
+    // ── Success ──────────────────────────────────────────────────────────
+    setStatus({ kind: "success" });
+    setName("");
+    setCaption("");
+    setFileName("");
+    if (fileInput) fileInput.value = "";
   }
 
   return (
@@ -184,8 +242,7 @@ export default function SharedPhotos({
             )}
             {status.kind === "success" && (
               <p className="rounded-lg bg-sage-50 px-4 py-3 text-sm text-sage-700">
-                Thank you — your photo has been received and will appear once the
-                family approves it. 💛
+                Photo submitted! It will appear after family approval. 💛
               </p>
             )}
 
