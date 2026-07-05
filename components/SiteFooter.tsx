@@ -8,11 +8,11 @@ export default function SiteFooter() {
           <div className="flex items-center gap-2">
             <span className="text-2xl">🕯️</span>
             <span className="font-serif text-xl font-semibold text-ink-900">
-              Memorial
+              Memoforial 
             </span>
           </div>
           <p className="mt-3 max-w-xs text-sm text-ink-500">
-            A gentle space to honour and remember the people we love.
+            Celebrating lives, together.
           </p>
         </div>
         <div className="text-sm">
@@ -36,6 +36,16 @@ export default function SiteFooter() {
             <li>
               <Link href="/admin" className="hover:text-ink-800">
                 Admin dashboard
+              </Link>
+            </li>
+            <li>
+              <Link href="mailto:Memforial@gmail.com" className="hover:text-ink-800">
+                Memforial@gmail.com
+              </Link>
+            </li>
+            <li>
+              <Link href="https://www.instagram.com/memforial?utm_source=qr" className="hover:text-ink-800">
+                Instagram Memforial
               </Link>
             </li>
           </ul>

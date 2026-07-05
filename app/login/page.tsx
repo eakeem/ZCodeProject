@@ -12,7 +12,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-flex items-center gap-2">
             <span className="text-2xl">🕯️</span>
             <span className="font-serif text-xl font-semibold text-ink-900">
-              Memorial
+              Memforial Powered By Ellis NT
             </span>
           </Link>
         </div>
@@ -31,9 +31,7 @@ export default function LoginPage() {
             </Suspense>
           </div>
         </div>
-        <p className="mt-6 text-center text-xs text-ink-400">
-          Demo login · <code>admin@memorial.demo</code> / <code>demo1234</code>
-        </p>
+        
       </div>
     </main>
   );

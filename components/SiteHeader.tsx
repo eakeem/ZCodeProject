@@ -11,8 +11,8 @@ export default function SiteHeader() {
   const [open, setOpen] = useState(false);
   const links = [
     { href: "/#features", label: "Features" },
-    { href: "/#how", label: "How it works" },
-    { href: "/#demo", label: "Demo" },
+    { href: "/#how", label: "What we offer" },
+    
     { href: "/pricing", label: "Pricing" },
   ];
   return (

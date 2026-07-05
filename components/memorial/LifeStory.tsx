@@ -32,7 +32,7 @@ export default function LifeStory({
         </div>
         <div>
           <div className="divider mb-3 justify-start text-xs uppercase tracking-[0.25em]">
-            Their story
+            Biography
           </div>
           <h2 className="font-serif text-3xl font-semibold text-ink-900 sm:text-4xl">
             A life well lived

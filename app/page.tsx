@@ -22,7 +22,7 @@ export default function HomePage() {
               <Candle size={48} />
             </div>
             <p className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-candle-200">
-              Honouring lives, together
+              Celebrating lives, together
             </p>
             <h1 className="font-serif text-4xl font-semibold leading-tight sm:text-6xl">
               A beautiful place to remember
@@ -30,7 +30,7 @@ export default function HomePage() {
               the people you love.
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-ink-100">
-              Create a lasting memorial page in minutes. Gather photos,
+              Create lasting memories. Gather photos,
               receive warm tributes, and light virtual candles a space
               where family and friends can gather, no matter the distance.
             </p>
@@ -64,8 +64,8 @@ export default function HomePage() {
               },
               {
                 icon: "✉️",
-                title: "Tributes & messages",
-                body: "Friends and family can leave warm messages of support. Every tribute is moderated by you before it appears.",
+                title: "Tributes & Shared photos",
+                body: "Friends and family can leave warm messages of support. Every tribute is moderated by us before it appears.",
               },
               {
                 icon: "🕯️",
@@ -75,7 +75,7 @@ export default function HomePage() {
               {
                 icon: "✍️",
                 title: "Your words, your way",
-                body: "Add a biography, favourite quotes, and service details with custom, editable text sections.",
+                body: "biography, favourite quotes, and service details with custom, editable text sections.",
               },
               {
                 icon: "🔒",
@@ -112,7 +112,7 @@ export default function HomePage() {
                 Simple to set up
               </div>
               <h2 className="font-serif text-3xl font-semibold text-ink-900 sm:text-4xl">
-                Three gentle steps
+                We handle the tech, you focus on the memories
               </h2>
             </div>
             <div className="grid gap-10 md:grid-cols-3">
@@ -120,17 +120,17 @@ export default function HomePage() {
                 {
                   n: "1",
                   t: "Create your account",
-                  b: "Sign up and start a memorial in minutes. Add a name, a photograph, and a few words.",
+                  b: "Contact our team to start a memorial in minutes. Send us your details and we do the heavy lifting.",
                 },
                 {
                   n: "2",
-                  t: "Personalise the page",
-                  b: "Upload photos, write the life story, and set the service details. Choose from elegant themes.",
+                  t: "Personalise webpage",
+                  b: "High quality photos, full funeral program, all in one for all your needs.",
                 },
                 {
                   n: "3",
                   t: "Share & gather",
-                  b: "Share the link. Visitors leave tributes and light candles all moderated by you.",
+                  b: "Share the link. Visitors leave tributes and light candles all moderated by us.",
                 },
               ].map((s) => (
                 <div key={s.n} className="text-center">
@@ -155,8 +155,7 @@ export default function HomePage() {
               Begin a memorial today
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-ink-200">
-              A free memorial includes everything you need to start. Upgrade
-              only if you'd like more.
+              For all your funeral needs. contact our team to get started. We have different packages available to suit your needs. We will handle the tech, you focus on the memories.
             </p>
             <Link
               href="/login"

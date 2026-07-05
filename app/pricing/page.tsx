@@ -18,8 +18,7 @@ export default function PricingPage() {
             Choose your plan
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-ink-500">
-            Start free, forever. Upgrade only when you'd like more photos,
-            a custom domain, or livestream.
+            We have different packages available to suit your needs. We will handle the tech, you focus on the memories.
           </p>
         </div>
 
@@ -45,7 +44,7 @@ export default function PricingPage() {
                   <span className="font-serif text-4xl font-semibold text-ink-900">
                     ${t.priceMonthly}
                   </span>
-                  <span className="text-ink-400">/month</span>
+                  <span className="text-ink-400">USD</span>
                 </div>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-ink-600">
                   {t.features.map((f) => (
@@ -70,13 +69,7 @@ export default function PricingPage() {
           })}
         </div>
 
-        <p className="mt-10 text-center text-sm text-ink-400">
-          Already have an account?{" "}
-          <Link href="/login" className="text-candle-700 hover:underline">
-            Log in
-          </Link>{" "}
-          and manage your plan under Plan &amp; billing.
-        </p>
+        
       </main>
       <SiteFooter />
     </>

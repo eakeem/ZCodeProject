@@ -45,8 +45,8 @@ export default function BillingPanel({
     <div className="space-y-6">
       {!configured && (
         <div className="rounded-lg bg-candle-50 px-4 py-3 text-sm text-candle-800">
-          <strong>Demo mode:</strong> Stripe isn't configured, so upgrades are
-          applied instantly for testing. Add your Stripe keys to
+          <strong>Choose plan:</strong>so upgrades are
+          applied instantly, depending on customer payment.
           <code className="mx-1 rounded bg-white/60 px-1">.env.local</code>
           to take real payments.
         </div>

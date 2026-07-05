@@ -6,7 +6,7 @@ export default function DashboardHeader({ onCreate }: { onCreate: () => void }) 
     <header className="mb-6 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink-900">Memorial Admin</h1>
+          <h1 className="text-2xl font-semibold text-ink-900">Memforial Admin</h1>
           <p className="text-sm text-ink-500">Manage customer memorial pages, publish updates, and share links.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
