@@ -35,8 +35,16 @@ export default function GalleryManager({
       fd.append("memorialId", memorialId);
       if (caption) fd.append("caption", caption);
       const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Response wasn't JSON (e.g. 413 from the server)
+      }
+      if (!res.ok) {
+        if (res.status === 413) throw new Error("Image is too large. Please choose a file under 10 MB.");
+        throw new Error(data.error || "Upload failed");
+      }
       setItems((i) => [data, ...i]);
       setCaption("");
       router.refresh();

@@ -4,6 +4,12 @@ import { getMemorialById, addMedia, getMediaByMemorial } from "@/lib/repo";
 import { canUploadMore } from "@/lib/gate";
 import { uploadImage, validateImageUpload } from "@/lib/storage";
 
+// Allow up to 12 MB request bodies (Next.js default is 4 MB; our image
+// cap is 10 MB so we need a bit of head-room for multipart overhead).
+export const config = {
+  api: { bodyParser: false, sizeLimit: "12mb" },
+};
+
 // POST /api/upload — multipart file upload from the family admin
 // gallery. Uploaded to Supabase Storage (bucket "memorial"), then the
 // public URL is recorded as a MediaItem via the repo layer.
