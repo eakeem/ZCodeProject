@@ -69,13 +69,13 @@ export default async function AdminShell({
             </p>
           </div>
           <form action={logoutAction}  className="mt-3">
-            <button
-              type="submit"
-              className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink-500 hover:bg-ink-50"
-            >
-              Log out
-            </button>
-          </form>
+  <button
+    type="submit"
+    className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink-500 hover:bg-ink-50"
+  >
+    Log out
+  </button>
+</form>
         </div>
       </aside>
 
