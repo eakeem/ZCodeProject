@@ -15,6 +15,7 @@ export async function logoutAndRedirect() {
     maxAge: 0,
     httpOnly: true,  // Add this for security
     sameSite: 'lax'  // Add this for security
+    secure: true
   });
   
   redirect("/"); // Redirect to homepage instead of login
