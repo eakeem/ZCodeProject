@@ -68,7 +68,7 @@ export default async function AdminShell({
               {tier.name} plan
             </p>
           </div>
-          <form action={logoutAction} method="POST" className="mt-3">
+          <form action={logoutAction}  className="mt-3">
             <button
               type="submit"
               className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink-500 hover:bg-ink-50"
