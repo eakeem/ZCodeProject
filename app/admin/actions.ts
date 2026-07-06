@@ -14,7 +14,7 @@ export async function logoutAndRedirect() {
     path: '/',
     maxAge: 0,
     httpOnly: true,  // Add this for security
-    sameSite: 'lax'  // Add this for security
+    sameSite: 'lax',  // Add this for security
     secure: true
   });
   
