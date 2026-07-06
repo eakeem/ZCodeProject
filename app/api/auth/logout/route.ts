@@ -5,19 +5,14 @@ function serializeCookie(name: string, value: string, maxAge: number) {
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   await signOut();
-  return NextResponse.json(
-    { ok: true },
-    {
-      status: 200,
-      headers: {
-        'Set-Cookie': serializeCookie('memorial_session', '', 0),
-      },
-    },
-  );
+  
+  const response = NextResponse.redirect(new URL('/', request.url))
+  response.headers.set('Set-Cookie', serializeCookie('memorial_session', '', 0))
+  return response
 }
 
-export async function GET() {
-  return POST();
+export async function GET(request: Request) {
+  return POST(request);
 }

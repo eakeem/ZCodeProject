@@ -31,7 +31,7 @@ export default function HomePage() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-ink-100">
               Create lasting memories. Gather photos,
-              receive warm tributes, and light virtual candles a space
+              receive warm tributes, and light virtual candles. A space
               where family and friends can gather, no matter the distance.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">

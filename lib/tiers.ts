@@ -6,7 +6,7 @@ export const TIERS: Record<Tier, TierConfig> = {
   free: {
     id: "free",
     name: "Basic ",
-    priceMonthly: 100,
+    priceMonthly: 15000,
     description: "A simple, dignified memorial to honour a loved one.",
     features: [
       "1 memorial page",
@@ -27,7 +27,7 @@ export const TIERS: Record<Tier, TierConfig> = {
   essential: {
     id: "essential",
     name: "Essential",
-    priceMonthly: 150,
+    priceMonthly: 25000,
     description: "Everything you need for a fuller, richer remembrance.",
     features: [
       "Website online 7 days after funeral",
@@ -49,7 +49,7 @@ export const TIERS: Record<Tier, TierConfig> = {
   premium: {
     id: "premium",
     name: "Premium",
-    priceMonthly: 250,
+    priceMonthly: 45000,
     description: "The complete experience, with no limits and your own domain.",
     features: [
       "Everything in Essential",

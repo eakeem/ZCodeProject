@@ -10,9 +10,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
-            <span className="text-2xl">🕯️</span>
-            <span className="font-serif text-xl font-semibold text-ink-900">
-              Memforial Powered By Ellis NT
+            <span className="font-serif text-2xl font-extrabold tracking-wide text-ink-900">
+              <span className="text-[#E63946]">MEM</span>
+              <span className="text-[#1D3557]">FORIAL</span>
             </span>
           </Link>
         </div>

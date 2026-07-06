@@ -44,7 +44,7 @@ export default function PricingPage() {
                   <span className="font-serif text-4xl font-semibold text-ink-900">
                     ${t.priceMonthly}
                   </span>
-                  <span className="text-ink-400">USD</span>
+                  <span className="text-ink-400">JMD</span>
                 </div>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-ink-600">
                   {t.features.map((f) => (
