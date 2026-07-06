@@ -185,7 +185,7 @@ export default function SharedPhotos({
             Share a photo
           </h3>
           <p className="mt-1 text-sm text-ink-500">
-            Add a photo to the collection. It will appear once the family approves it.
+            Add a photo to the collection. It will appear once it is approved.
           </p>
 
           <div className="mt-5 space-y-4">

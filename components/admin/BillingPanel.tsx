@@ -45,10 +45,9 @@ export default function BillingPanel({
     <div className="space-y-6">
       {!configured && (
         <div className="rounded-lg bg-candle-50 px-4 py-3 text-sm text-candle-800">
-          <strong>Choose plan:</strong>so upgrades are
+          <strong>Choose plan:</strong>upgrades are
           applied instantly, depending on customer payment.
-          <code className="mx-1 rounded bg-white/60 px-1">.env.local</code>
-          to take real payments.
+          
         </div>
       )}
       {msg && (

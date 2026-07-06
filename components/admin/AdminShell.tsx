@@ -33,10 +33,10 @@ export default async function AdminShell({
       {/* sidebar */}
       <aside className="border-b border-ink-100 bg-white lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2 px-6 py-5">
-          <span className="text-xl">🕯️</span>
-          <span className="font-serif text-lg font-semibold text-ink-900">
-            Memorial
-          </span>
+           <span className="font-serif text-2xl font-extrabold tracking-wide text-ink-900">
+              <span className="text-[#E63946]">MEM</span>
+              <span className="text-[#1D3557]">FORIAL</span>
+            </span>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:pb-0">
           {NAV.map((n) => {

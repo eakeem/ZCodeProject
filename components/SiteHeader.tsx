@@ -19,10 +19,10 @@ export default function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-ink-100 bg-ink-50/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl">🕯️</span>
-          <span className="font-serif text-xl font-semibold text-ink-900">
-            Memforial
-          </span>
+          <span className="font-serif text-2xl font-extrabold tracking-wide text-ink-900">
+              <span className="text-[#E63946]">MEM</span>
+              <span className="text-[#1D3557]">FORIAL</span>
+            </span>
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

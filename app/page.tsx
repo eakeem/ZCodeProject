@@ -36,10 +36,10 @@ export default function HomePage() {
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/login"
+                href="mailto:Memforial@gmail.com"
                 className="rounded-full bg-candle-500 px-8 py-3.5 font-medium text-white shadow-lg transition hover:bg-candle-600"
               >
-                Admin login
+                Contact Us
               </Link>
             </div>
           </div>
@@ -155,13 +155,13 @@ export default function HomePage() {
               Begin a memorial today
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-ink-200">
-              For all your funeral needs. contact our team to get started. We have different packages available to suit your needs. We will handle the tech, you focus on the memories.
+              For all your funeral website needs. Contact our team to get started. We have different packages available to suit your needs. We will handle the tech, you focus on the memories.
             </p>
             <Link
-              href="/login"
+              href="mailto:Memforial@gmail.com"
               className="mt-8 inline-block rounded-full bg-candle-500 px-8 py-3.5 font-medium text-white transition hover:bg-candle-600"
             >
-              Admin login
+              Contact Us
             </Link>
           </div>
         </section>

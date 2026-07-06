@@ -41,7 +41,7 @@ export default function TributeModeration({ initial }: { initial: Tribute[] }) {
       )}
       {pending.length === 0 && (approved.length > 0 || rejected.length > 0) && (
         <div className="rounded-lg bg-sage-50 px-4 py-3 text-sm text-sage-700">
-          All caught up — no tributes waiting.
+          All caught up no tributes waiting.
         </div>
       )}
 
