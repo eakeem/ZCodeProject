@@ -7,16 +7,16 @@ import { signOut } from "@/lib/auth";
 const SESSION_COOKIE_NAME = 'memorial_session';
 
 export async function logoutAndRedirect() {
-  await signOut(); // Important: actually logout from Lucia/whatever auth you use
+  try {
+    await signOut();
+    
+    const cookieStore = await cookies();
+    // Use .delete() instead of set with maxAge 0. More reliable
+    cookieStore.delete(SESSION_COOKIE_NAME);
+    
+  } catch (error) {
+    console.error("Logout error:", error);
+  }
   
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, '', {
-    path: '/',
-    maxAge: 0,
-    httpOnly: true,  // Add this for security
-    sameSite: 'lax',  // Add this for security
-    secure: true
-  });
-  
-  redirect("/"); // Redirect to homepage instead of login
+  redirect("/"); // Redirect happens OUTSIDE the try
 }
