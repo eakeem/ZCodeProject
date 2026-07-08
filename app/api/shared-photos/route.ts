@@ -90,6 +90,7 @@ export async function POST(req: Request) {
       caption,
       authorName,
     });
+    console.log("[api/shared-photos] Returning URL to frontend:", url);
     return NextResponse.json({ ...photo, status: "pending" }, { status: 201 });
   } catch (e) {
     console.error("[/api/shared-photos] Unhandled error:", e);

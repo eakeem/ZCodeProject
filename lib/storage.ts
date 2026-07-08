@@ -13,7 +13,13 @@
 // ============================================================
 
 import { createClient } from "@supabase/supabase-js";
-import sharp from "sharp";
+// sharp is intentionally NOT imported at module level — a top-level ES import
+// causes webpack to include it in its shared server module graph, which crashes
+// any route that doesn't explicitly declare runtime = "nodejs" (e.g. the
+// visitor memorial page). We require() it lazily inside uploadImage() instead,
+// which keeps it out of webpack's static dependency tree entirely.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+type Sharp = typeof import('sharp');
 
 // 10 MB upload cap — applies to both flows. Visitor uploads are also
 // MIME-checked against the allow-list below.
@@ -97,8 +103,13 @@ export async function uploadImage(
 
   console.log(`[storage] UPLOAD ROUTE HIT — bucket: ${bucket}`);
 
+  // Lazy-require sharp so webpack never sees it as a static import.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const sharp = (require('sharp') as Sharp).default ?? require('sharp') as Sharp;
+
   const rawBytes = Buffer.from(await file.arrayBuffer());
   console.log(`[storage] Original: ${rawBytes.length} bytes`);
+  console.log(`[storage] Input first 4 bytes: ${rawBytes.slice(0, 4).toString('hex')} (valid JPEG: ${rawBytes[0] === 0xFF && rawBytes[1] === 0xD8})`);
 
   const compressedBytes = await sharp(rawBytes)
     .rotate()                          // auto-orient from EXIF
@@ -110,6 +121,7 @@ export async function uploadImage(
     `[storage] Original: ${rawBytes.length} Compressed: ${compressedBytes.length}` +
     ` (${((1 - compressedBytes.length / rawBytes.length) * 100).toFixed(1)}% reduction)`,
   );
+  console.log(`[storage] Output first 4 bytes: ${compressedBytes.slice(0, 4).toString('hex')} (valid JPEG: ${compressedBytes[0] === 0xFF && compressedBytes[1] === 0xD8})`);
 
   if (!isStorageConfigured()) {
     // Local dev fallback: return a data URL of the compressed bytes.
@@ -118,6 +130,16 @@ export async function uploadImage(
   }
 
   const supabase = adminClient();
+
+  // Deliberately upload as a Buffer, NOT a Blob/File.
+  // The Supabase storage-js SDK has two upload paths:
+  //   • Blob/File → wraps in FormData with body.append("", blob) — Node.js
+  //     treats this field as text and UTF-8 encodes the binary bytes, turning
+  //     every non-UTF-8 byte into EF BF BD (replacement character). Corrupt.
+  //   • Buffer/Uint8Array → sends raw binary via PUT with explicit
+  //     Content-Type header. Correct.
+  // The Buffer path also side-steps a Node 24 undici stream-abort bug that
+  // fires "fetch failed" when using Blob bodies through the SDK.
   const { error } = await supabase.storage
     .from(bucket)
     .upload(objectPath, compressedBytes, { contentType: "image/jpeg", upsert: false });

@@ -94,10 +94,13 @@ export async function POST(req: Request) {
     // separate call.
     if (resolvedMemorialId) {
       const item = await addMedia(resolvedMemorialId, url, caption);
-      return NextResponse.json({ ...item, url, path }, { status: 201 });
+      console.log("[api/upload] Returning URL to frontend:", url);
+      // Return exactly what was returned before compression, injecting url
+      return NextResponse.json(item, { status: 201 });
     }
 
-    return NextResponse.json({ url, path }, { status: 201 });
+    console.log("[api/upload] Returning URL to frontend:", url);
+    return NextResponse.json({ url }, { status: 201 });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Image upload failed. Please try again." },
