@@ -129,24 +129,42 @@ export async function uploadImage(
     return { url: dataUrl, path: objectPath, bucket };
   }
 
-  const supabase = adminClient();
+  // Bypass the Supabase storage-js SDK upload method entirely and use a
+  // direct HTTP POST to the Storage REST API.  The SDK's uploadOrUpdate()
+  // wraps Blob/File bodies in FormData (which can corrupt binary in some
+  // Node runtimes), and its internal fetch abstraction has had breaking
+  // changes across versions.  A raw fetch with the Buffer as the body is
+  // guaranteed to send exact binary bytes regardless of SDK version or
+  // Node.js release (18 / 20 / 22 / 24).
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${objectPath}`;
 
-  // Deliberately upload as a Buffer, NOT a Blob/File.
-  // The Supabase storage-js SDK has two upload paths:
-  //   • Blob/File → wraps in FormData with body.append("", blob) — Node.js
-  //     treats this field as text and UTF-8 encodes the binary bytes, turning
-  //     every non-UTF-8 byte into EF BF BD (replacement character). Corrupt.
-  //   • Buffer/Uint8Array → sends raw binary via PUT with explicit
-  //     Content-Type header. Correct.
-  // The Buffer path also side-steps a Node 24 undici stream-abort bug that
-  // fires "fetch failed" when using Blob bodies through the SDK.
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(objectPath, compressedBytes, { contentType: "image/jpeg", upsert: false });
-  if (error) {
-    throw new Error(humanizeStorageError(error, bucket));
+  const uploadRes = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "image/jpeg",
+      "x-upsert": "false",
+      "cache-control": "3600",
+    },
+    // Passing a Buffer (Uint8Array subclass) as the body tells Node.js fetch
+    // to send raw binary with no encoding transformation.
+    body: compressedBytes,
+  });
+
+  if (!uploadRes.ok) {
+    const body = await uploadRes.json().catch(() => ({})) as { message?: string; error?: string };
+    throw new Error(
+      humanizeStorageError(
+        { message: body.message ?? body.error, statusCode: uploadRes.status },
+        bucket,
+      ),
+    );
   }
 
+  // getPublicUrl just constructs a URL — no network call.
+  const supabase = adminClient();
   const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
   return { url: data.publicUrl, path: objectPath, bucket };
 }
