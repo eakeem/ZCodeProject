@@ -5,15 +5,42 @@ import type { Tribute } from "@/lib/types";
 
 export default function TributeModeration({ initial }: { initial: Tribute[] }) {
   const [items, setItems] = useState<Tribute[]>(initial);
+  const [deleting, setDeleting] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-  async function act(id: string, action: "approve" | "reject" | "delete") {
+  async function act(id: string, action: "approve" | "delete") {
     const res = await fetch(`/api/admin/tributes/${id}`, { method: "PATCH", body: JSON.stringify({ action }), headers: { "Content-Type": "application/json" } });
     if (!res.ok) return;
-    setItems((list) =>
-      action === "delete"
-        ? list.filter((t) => t.id !== id)
-        : list.filter((t) => t.id !== id),
-    );
+    setItems((list) => list.filter((t) => t.id !== id));
+  }
+
+  async function rejectItem(id: string, imageUrl?: string) {
+    if (!window.confirm("Are you sure you want to permanently delete this? This cannot be undone.")) return;
+
+    setDeleting((prev) => new Set(prev).add(id));
+    setError(null);
+    try {
+      if (imageUrl) {
+        const storageRes = await fetch("/api/admin/delete-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: imageUrl, bucket: "memorial" }),
+        });
+        if (!storageRes.ok) {
+          const data = await storageRes.json().catch(() => ({}));
+          setError(data.error || "Failed to delete file from storage");
+          return;
+        }
+      }
+      await fetch(`/api/admin/tributes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete" }),
+      });
+      setItems((list) => list.filter((t) => t.id !== id));
+    } finally {
+      setDeleting((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
   }
 
   const pending = items.filter((t) => t.status === "pending");
@@ -22,6 +49,9 @@ export default function TributeModeration({ initial }: { initial: Tribute[] }) {
 
   return (
     <div className="space-y-8">
+      {error && (
+        <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>
+      )}
       {pending.length > 0 && (
         <Group title="Awaiting your review" items={pending}>
           {(t) => (
@@ -29,8 +59,12 @@ export default function TributeModeration({ initial }: { initial: Tribute[] }) {
               <button onClick={() => act(t.id, "approve")} className="rounded-full bg-sage-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sage-700">
                 Approve
               </button>
-              <button onClick={() => act(t.id, "reject")} className="rounded-full border border-ink-200 px-4 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50">
-                Reject
+              <button
+                onClick={() => rejectItem(t.id, t.imageUrl)}
+                disabled={deleting.has(t.id)}
+                className="rounded-full border border-ink-200 px-4 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting.has(t.id) ? "Deleting…" : "Reject"}
               </button>
             </div>
           )}

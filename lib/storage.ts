@@ -13,6 +13,7 @@
 // ============================================================
 
 import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 // 10 MB upload cap — applies to both flows. Visitor uploads are also
 // MIME-checked against the allow-list below.
@@ -79,39 +80,47 @@ function extFromMime(mime: string): string {
 }
 
 /**
- * Upload an image buffer to the given bucket and return its public URL.
- * The object path is namespaced under the memorial id so a family can
- * isolate / clean up its own assets, and suffixed with a timestamp +
- * random token so paths are unguessable.
+ * Upload an image to the given bucket, compressing it with sharp first.
+ * The image is always converted to JPEG at quality 75, resized to a
+ * maximum of 1600x1600 (preserving aspect ratio), and EXIF-rotated.
+ * The object path is namespaced under the memorial id and suffixed with
+ * a timestamp + random token so paths are unguessable.
  */
 export async function uploadImage(
   file: File | Blob,
   memorialId: string,
   bucket: "memorial" | "shared-photos",
 ): Promise<UploadResult> {
-  const mime = (file as File).type || "image/jpeg";
-  const ext = extFromMime(mime);
+  // Output is always JPEG after compression.
   const stamp = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const objectPath = `${memorialId}/${stamp}.${ext}`;
+  const objectPath = `${memorialId}/${stamp}.jpg`;
+
+  console.log(`[storage] UPLOAD ROUTE HIT — bucket: ${bucket}`);
+
+  const rawBytes = Buffer.from(await file.arrayBuffer());
+  console.log(`[storage] Original: ${rawBytes.length} bytes`);
+
+  const compressedBytes = await sharp(rawBytes)
+    .rotate()                          // auto-orient from EXIF
+    .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toBuffer();
+
+  console.log(
+    `[storage] Original: ${rawBytes.length} Compressed: ${compressedBytes.length}` +
+    ` (${((1 - compressedBytes.length / rawBytes.length) * 100).toFixed(1)}% reduction)`,
+  );
 
   if (!isStorageConfigured()) {
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+    // Local dev fallback: return a data URL of the compressed bytes.
+    const dataUrl = `data:image/jpeg;base64,${compressedBytes.toString("base64")}`;
     return { url: dataUrl, path: objectPath, bucket };
   }
-
-  // Convert the incoming File/Blob to a Node Buffer before uploading.
-  // On Node 24, undici's handling of Blob/File bodies sent through the
-  // Supabase storage SDK throws a bare "fetch failed" (a stream/abort
-  // bug); passing a Buffer sidesteps it and is reliable across Node
-  // versions. We also read the bytes once so the MIME/size we validated
-  // is exactly what gets stored.
-  const bytes = Buffer.from(await file.arrayBuffer());
 
   const supabase = adminClient();
   const { error } = await supabase.storage
     .from(bucket)
-    .upload(objectPath, bytes, { contentType: mime, upsert: false });
+    .upload(objectPath, compressedBytes, { contentType: "image/jpeg", upsert: false });
   if (error) {
     throw new Error(humanizeStorageError(error, bucket));
   }

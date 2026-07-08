@@ -11,8 +11,9 @@ export default function SharedPhotoModeration({
   const [items, setItems] = useState<SharedPhoto[]>(initial);
   const [active, setActive] = useState<SharedPhoto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Set<string>>(new Set());
 
-  async function act(id: string, action: "approve" | "reject" | "delete") {
+  async function act(id: string, action: "approve" | "delete") {
     setError(null);
     const res = await fetch(`/api/admin/shared-photos/${id}`, {
       method: "PATCH",
@@ -27,15 +28,40 @@ export default function SharedPhotoModeration({
     setItems((list) =>
       action === "delete"
         ? list.filter((p) => p.id !== id)
-        : list.map((p) =>
-            p.id === id
-              ? {
-                  ...p,
-                  status: action === "approve" ? "approved" : "rejected",
-                }
-              : p,
-          ),
+        : list.map((p) => p.id === id ? { ...p, status: "approved" as const } : p),
     );
+  }
+
+  async function rejectItem(id: string, url: string) {
+    if (!window.confirm("Are you sure you want to permanently delete this? This cannot be undone.")) return;
+
+    setDeleting((prev) => new Set(prev).add(id));
+    setError(null);
+    try {
+      const storageRes = await fetch("/api/admin/delete-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, bucket: "shared-photos" }),
+      });
+      if (!storageRes.ok) {
+        const data = await storageRes.json().catch(() => ({}));
+        setError(data.error || "Failed to delete file from storage");
+        return;
+      }
+      const dbRes = await fetch(`/api/admin/shared-photos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete" }),
+      });
+      if (!dbRes.ok) {
+        const data = await dbRes.json().catch(() => ({}));
+        setError(data.error || "Failed to delete from database");
+        return;
+      }
+      setItems((list) => list.filter((p) => p.id !== id));
+    } finally {
+      setDeleting((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
   }
 
   const pending = items.filter((p) => p.status === "pending");
@@ -64,10 +90,11 @@ export default function SharedPhotoModeration({
                 Approve
               </button>
               <button
-                onClick={() => act(p.id, "reject")}
-                className="rounded-full border border-ink-200 px-4 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50"
+                onClick={() => rejectItem(p.id, p.url)}
+                disabled={deleting.has(p.id)}
+                className="rounded-full border border-ink-200 px-4 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Reject
+                {deleting.has(p.id) ? "Deleting…" : "Reject"}
               </button>
             </div>
           )}

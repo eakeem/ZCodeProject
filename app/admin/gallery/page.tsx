@@ -29,6 +29,7 @@ export default async function GalleryAdminPage() {
     <AdminShell active="/admin/gallery">
       <GalleryManager
         memorialId={memorial.id}
+        slug={memorial.slug}
         initial={media}
         maxImages={tier.limits.maxGalleryImages}
         currentCount={media.length}

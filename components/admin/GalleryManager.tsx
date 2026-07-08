@@ -6,11 +6,13 @@ import type { MediaItem } from "@/lib/types";
 
 export default function GalleryManager({
   memorialId,
+  slug,
   initial,
   maxImages, // -1 = unlimited
   currentCount,
 }: {
   memorialId: string;
+  slug: string;
   initial: MediaItem[];
   maxImages: number;
   currentCount: number;
@@ -32,6 +34,8 @@ export default function GalleryManager({
     try {
       const fd = new FormData();
       fd.append("file", file);
+      fd.append("bucket", "memorial");
+      fd.append("slug", slug);
       fd.append("memorialId", memorialId);
       if (caption) fd.append("caption", caption);
       const res = await fetch("/api/upload", { method: "POST", body: fd });

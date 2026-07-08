@@ -21,12 +21,13 @@ const nextConfig = {
       { protocol: "https", hostname: "images.pexels.com" },
     ],
   },
-  // `stripe` is an OPTIONAL production dependency loaded only at runtime
-  // in server routes, after its env vars are checked (see isStripeConfigured).
-  // Listing it here tells Next/Turbopack to treat it as a runtime `require`
-  // rather than bundling it — so the app still builds when it isn't installed,
-  // and only resolves it at runtime when actually used.
-  serverExternalPackages: ["stripe"],
+  // `stripe` and `sharp` are native/optional production dependencies loaded
+  // only at runtime in server routes. Listing them here tells Next/webpack
+  // to treat them as runtime `require` calls rather than bundling them —
+  // so the app builds when they aren't installed, and sharp (native binary)
+  // isn't incorrectly bundled, which would cause
+  // "__webpack_modules__[moduleId] is not a function" crashes.
+  serverExternalPackages: ["stripe", "sharp"],
 };
 
 export default nextConfig;
