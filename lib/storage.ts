@@ -13,13 +13,9 @@
 // ============================================================
 
 import { createClient } from "@supabase/supabase-js";
-// sharp is intentionally NOT imported at module level — a top-level ES import
-// causes webpack to include it in its shared server module graph, which crashes
-// any route that doesn't explicitly declare runtime = "nodejs" (e.g. the
-// visitor memorial page). We require() it lazily inside uploadImage() instead,
-// which keeps it out of webpack's static dependency tree entirely.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-type Sharp = typeof import('sharp');
+// sharp is listed under serverExternalPackages in next.config.mjs so webpack
+// never bundles it — a top-level import is safe here.
+import sharp from "sharp";
 
 // 10 MB upload cap — applies to both flows. Visitor uploads are also
 // MIME-checked against the allow-list below.
@@ -47,9 +43,14 @@ export interface UploadResult {
 }
 
 function adminClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "Supabase env vars missing. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel",
+    );
+  }
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } },
   );
 }
@@ -103,25 +104,22 @@ export async function uploadImage(
 
   console.log(`[storage] UPLOAD ROUTE HIT — bucket: ${bucket}`);
 
-  // Lazy-require sharp so webpack never sees it as a static import.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const sharp = (require('sharp') as Sharp).default ?? require('sharp') as Sharp;
-
   const rawBytes = Buffer.from(await file.arrayBuffer());
   console.log(`[storage] Original: ${rawBytes.length} bytes`);
-  console.log(`[storage] Input first 4 bytes: ${rawBytes.slice(0, 4).toString('hex')} (valid JPEG: ${rawBytes[0] === 0xFF && rawBytes[1] === 0xD8})`);
 
-  const compressedBytes = await sharp(rawBytes)
+  const compressedBytes = await sharp(rawBytes, { failOnError: true })
     .rotate()                          // auto-orient from EXIF
     .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 75 })
+    .jpeg({ quality: 75, mozjpeg: true, progressive: true })
     .toBuffer();
 
-  console.log(
-    `[storage] Original: ${rawBytes.length} Compressed: ${compressedBytes.length}` +
-    ` (${((1 - compressedBytes.length / rawBytes.length) * 100).toFixed(1)}% reduction)`,
-  );
-  console.log(`[storage] Output first 4 bytes: ${compressedBytes.slice(0, 4).toString('hex')} (valid JPEG: ${compressedBytes[0] === 0xFF && compressedBytes[1] === 0xD8})`);
+  console.log(`[storage] Compressed size: ${compressedBytes.byteLength} bytes`);
+
+  if (compressedBytes.byteLength < 1000) {
+    throw new Error("Compression produced an unexpectedly small buffer — sharp may be misconfigured.");
+  }
+
+  console.log("[storage] isStorageConfigured:", isStorageConfigured());
 
   if (!isStorageConfigured()) {
     // Local dev fallback: return a data URL of the compressed bytes.
@@ -129,43 +127,17 @@ export async function uploadImage(
     return { url: dataUrl, path: objectPath, bucket };
   }
 
-  // Bypass the Supabase storage-js SDK upload method entirely and use a
-  // direct HTTP POST to the Storage REST API.  The SDK's uploadOrUpdate()
-  // wraps Blob/File bodies in FormData (which can corrupt binary in some
-  // Node runtimes), and its internal fetch abstraction has had breaking
-  // changes across versions.  A raw fetch with the Buffer as the body is
-  // guaranteed to send exact binary bytes regardless of SDK version or
-  // Node.js release (18 / 20 / 22 / 24).
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${objectPath}`;
+  const supabase = adminClient();
 
-  const uploadRes = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${serviceKey}`,
-      "Content-Type": "image/jpeg",
-      "x-upsert": "false",
-      "cache-control": "3600",
-    },
-    // Passing a Buffer (Uint8Array subclass) as the body tells Node.js fetch
-    // to send raw binary with no encoding transformation.
-    body: compressedBytes,
-  });
-
-  if (!uploadRes.ok) {
-    const body = await uploadRes.json().catch(() => ({})) as { message?: string; error?: string };
-    throw new Error(
-      humanizeStorageError(
-        { message: body.message ?? body.error, statusCode: uploadRes.status },
-        bucket,
-      ),
-    );
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(objectPath, compressedBytes, { contentType: "image/jpeg", upsert: false });
+  if (error) {
+    throw new Error(humanizeStorageError(error, bucket));
   }
 
-  // getPublicUrl just constructs a URL — no network call.
-  const supabase = adminClient();
   const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  console.log(`[storage] Public URL: ${data.publicUrl}`);
   return { url: data.publicUrl, path: objectPath, bucket };
 }
 

@@ -29,6 +29,13 @@ export async function POST(req: Request) {
     const caption = String(form.get("caption") || "").trim() || undefined;
     const file = form.get("file") as File | null;
 
+    console.log("[api/shared-photos] request received", {
+      memorialIdOrSlug,
+      hasFile: Boolean(file),
+      fileType: file?.type,
+      fileSize: file?.size,
+    });
+
     if (!memorialIdOrSlug) {
       return NextResponse.json({ error: "A memorial is required." }, { status: 400 });
     }
@@ -83,7 +90,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const { url } = await uploadImage(file, memorial.id, "shared-photos");
+    let uploadResult: { url: string };
+    try {
+      console.log("[api/shared-photos] uploading to shared-photos bucket");
+      uploadResult = await uploadImage(file, memorial.id, "shared-photos");
+      console.log("[api/shared-photos] uploadImage returned", uploadResult.url);
+    } catch (e) {
+      console.error("[api/shared-photos] UPLOAD ERROR:", e);
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Upload failed" },
+        { status: 500 },
+      );
+    }
+    const { url } = uploadResult;
     const photo = await addSharedPhoto({
       memorialId: memorial.id,
       url,

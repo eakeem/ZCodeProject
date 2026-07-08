@@ -102,9 +102,10 @@ export async function POST(req: Request) {
     console.log("[api/upload] Returning URL to frontend:", url);
     return NextResponse.json({ url }, { status: 201 });
   } catch (e) {
+    console.error("[api/upload] UPLOAD ERROR:", e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Image upload failed. Please try again." },
-      { status: 502 },
+      { error: e instanceof Error ? e.message : "Upload failed" },
+      { status: 500 },
     );
   }
 }
