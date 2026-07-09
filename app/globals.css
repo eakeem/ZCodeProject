@@ -64,6 +64,38 @@ h3,
   box-shadow: 0 18px 40px -20px rgba(31, 28, 24, 0.25);
 }
 
+/* scroll reveal, inspired by editorial landing-page motion */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(28px) scale(0.985);
+  transition:
+    opacity 0.75s ease,
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.is-revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.lift.scroll-reveal.is-revealed:hover {
+  transform: translateY(-3px) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* nice focus ring */
 :focus-visible {
   outline: 2px solid #c79a3a;

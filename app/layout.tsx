@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ScrollReveal from "@/components/ScrollReveal";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-ink-50 font-sans text-ink-800 antialiased">
+        <ScrollReveal />
         {children}
       </body>
     </html>
