@@ -24,7 +24,7 @@ export default function ScrollReveal() {
 
     elements.forEach((element, index) => {
       element.classList.add("scroll-reveal");
-      element.style.setProperty("--reveal-delay", `${Math.min(index % 6, 5) * 70}ms`);
+      element.style.setProperty("--reveal-delay", `${Math.min(index % 4, 3) * 35}ms`);
     });
 
     const observer = new IntersectionObserver(
@@ -36,7 +36,7 @@ export default function ScrollReveal() {
           }
         });
       },
-      { rootMargin: "0px 0px -12% 0px", threshold: 0.12 },
+      { rootMargin: "0px 0px -4% 0px", threshold: 0.04 },
     );
 
     elements.forEach((element) => observer.observe(element));
